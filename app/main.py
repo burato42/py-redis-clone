@@ -1,5 +1,6 @@
 import asyncio
-
+from app.parser import parser
+from app.formatter import formatter
 
 async def handle_client(reader, writer):
     """Handle a single client connection."""
@@ -11,7 +12,11 @@ async def handle_client(reader, writer):
                 break
 
             message = data.decode()
-            if "PING" in message:
+            if "ECHO" in message:
+                response = parser.parse(message)
+                writer.write(formatter.format_echo_expression(response))
+                await writer.drain()
+            elif "PING" in message:
                 writer.write(b"+PONG\r\n")
                 await writer.drain()
     except Exception as e:
