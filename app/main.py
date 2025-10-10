@@ -1,6 +1,7 @@
 import asyncio
 from app.parser import parser
 from app.formatter import formatter
+from app.storage import storage
 
 async def handle_client(reader, writer):
     """Handle a single client connection."""
@@ -13,8 +14,18 @@ async def handle_client(reader, writer):
 
             message = data.decode()
             if "ECHO" in message:
-                response = parser.parse(message)
-                writer.write(formatter.format_echo_expression(response))
+                request = parser.parse(message)
+                writer.write(formatter.format_echo_expression(request))
+                await writer.drain()
+            elif "SET" in message:
+                request = parser.parse(message)
+                storage.set(request[1], request[2])
+                writer.write(formatter.format_ok_expression())
+                await writer.drain()
+            elif "GET" in message:
+                request = parser.parse(message)
+                value = storage.get(request[1])
+                writer.write(formatter.format_get_response(value))
                 await writer.drain()
             elif "PING" in message:
                 writer.write(b"+PONG\r\n")

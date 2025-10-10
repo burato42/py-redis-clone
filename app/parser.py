@@ -1,6 +1,6 @@
 class Parser:
 
-    def parse(self, message: str) -> list[str]:
+    def parse(self, message: str) -> list[bytes]:
         expression = []
         elements = message.split("\r\n")
         if not elements:
