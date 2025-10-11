@@ -1,7 +1,33 @@
 import asyncio
+from typing import Any
+
 from app.parser import parser
 from app.formatter import formatter
 from app.storage import storage
+
+
+async def process_command(command: str, writer: Any) -> None:
+    if "ECHO" in command:
+        # Example: *2\r\n$4\r\nECHO\r\n$6\r\nbanana\r\n
+        request = parser.parse(command)
+        writer.write(formatter.format_echo_expression(request))
+    elif "SET" in command:
+        # Example: *3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n
+        request = parser.parse(command)
+        record_key = request[1]
+        record_value = request[2]
+        storage.set(record_key, record_value)
+        writer.write(formatter.format_ok_expression())
+    elif "GET" in command:
+        # Example: *2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n
+        request = parser.parse(command)
+        record_key = request[1]
+        value = storage.get(record_key)
+        writer.write(formatter.format_get_response(value))
+    elif "PING" in command:
+        writer.write(b"+PONG\r\n")
+    await writer.drain()
+
 
 async def handle_client(reader, writer):
     """Handle a single client connection."""
@@ -11,25 +37,8 @@ async def handle_client(reader, writer):
             data = await reader.read(1024)
             if not data:
                 break
-
-            message = data.decode()
-            if "ECHO" in message:
-                request = parser.parse(message)
-                writer.write(formatter.format_echo_expression(request))
-                await writer.drain()
-            elif "SET" in message:
-                request = parser.parse(message)
-                storage.set(request[1], request[2])
-                writer.write(formatter.format_ok_expression())
-                await writer.drain()
-            elif "GET" in message:
-                request = parser.parse(message)
-                value = storage.get(request[1])
-                writer.write(formatter.format_get_response(value))
-                await writer.drain()
-            elif "PING" in message:
-                writer.write(b"+PONG\r\n")
-                await writer.drain()
+            command = data.decode()
+            await process_command(command, writer)
     except Exception as e:
         print(f"Error: {e}")
     finally:
