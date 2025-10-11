@@ -17,7 +17,11 @@ class Storage:
         self.data[key] = value
 
     def get(self, key: str) -> Any:
-        if key in self.data and self.data[key].expire and self.data[key].expire <= datetime.now():
+        if (
+            key in self.data
+            and self.data[key].expire
+            and self.data[key].expire <= datetime.now()
+        ):
             return None
         return self.data.get(key)
 

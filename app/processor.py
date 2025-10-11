@@ -18,8 +18,11 @@ async def process_command(command: tuple[Command, str, ...], writer: Any) -> Non
         record_key = request[1]
         record_value = request[2]
         if len(request) > 3:
-            expiration = datetime.now() + timedelta(seconds=int(request[4])) \
-                if request[3].upper() == "EX" else datetime.now() + timedelta(milliseconds=int(request[4]))
+            expiration = (
+                datetime.now() + timedelta(seconds=int(request[4]))
+                if request[3].upper() == "EX"
+                else datetime.now() + timedelta(milliseconds=int(request[4]))
+            )
         else:
             expiration = None
         storage.set(record_key, Value(record_value, expiration))

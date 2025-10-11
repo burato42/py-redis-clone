@@ -24,11 +24,7 @@ async def handle_client(reader, writer):
 async def main():
     print("Logs from your program will appear here!")
 
-    server = await asyncio.start_server(
-        handle_client,
-        "localhost",
-        6379
-    )
+    server = await asyncio.start_server(handle_client, "localhost", 6379)
 
     async with server:
         await server.serve_forever()
