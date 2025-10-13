@@ -35,4 +35,7 @@ async def process_command(command: tuple[Command, str, ...], writer: Any) -> Non
     elif command[0] == Command.PING:
         # Command example: (Command.PING, "PING")
         writer.write(b"+PONG\r\n")
+    elif command[0] == Command.RPUSH:
+        values = storage.rpush(command[2], Value(command[3]))
+        writer.write(formatter.format_rpush_response(values))
     await writer.drain()

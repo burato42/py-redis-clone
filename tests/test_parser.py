@@ -56,3 +56,9 @@ class TestParser:
             parser.parse_command(
                 b"*2\r\n$3\r\nIMPROVE\r\n$3\r\nfoo\r\n"
             )
+
+    def test_rpush(self):
+        cmd = parser.parse_command(
+            b"*3\r\n$5\r\nRPUSH\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"
+        )
+        assert cmd == (Command.RPUSH, "RPUSH", "foo", "bar")

@@ -1,3 +1,5 @@
+from typing import Any
+
 from app.storage import Value
 
 
@@ -14,6 +16,10 @@ class Formatter:
             return b"$-1\r\n"
         response = f"${len(value.item)}\r\n{value.item}\r\n"
         return response.encode("utf-8")
+
+    def format_rpush_response(self, values: list[Value]) -> bytes:
+        return f":{len(values)}\r\n".encode("utf-8")
+
 
 
 formatter = Formatter()

@@ -16,6 +16,15 @@ class Storage:
     def set(self, key: str, value: Value) -> None:
         self.data[key] = value
 
+    def rpush(self, key: str, value: Value) -> list[Value]:
+        if key in self.data and isinstance(list, self.data[key]):
+            self.data[key].append(value)
+        elif key not in self.data:
+            self.data[key] = [value]
+        else:
+            raise RuntimeError(f"Key {key} already exists and it's not a list")
+        return self.data[key]
+
     def get(self, key: str) -> Any:
         if (
             key in self.data
