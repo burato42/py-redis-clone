@@ -17,7 +17,7 @@ class Storage:
         self.data[key] = value
 
     def rpush(self, key: str, value: Value) -> list[Value]:
-        if key in self.data and isinstance(list, self.data[key]):
+        if key in self.data and isinstance(self.data[key], list):
             self.data[key].append(value)
         elif key not in self.data:
             self.data[key] = [value]
