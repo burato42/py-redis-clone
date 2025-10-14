@@ -1,3 +1,4 @@
+import logging
 from enum import Enum
 
 
@@ -7,9 +8,11 @@ class Command(Enum):
     GET = 3
     PING = 4
     RPUSH = 5
+    LRANGE = 6
 
 
 class Parser:
+
     def parse_command(self, payload: bytes) -> tuple[Command, ... ]:
         if b"ECHO" in payload.upper():
             # Example: *2\r\n$4\r\nECHO\r\n$6\r\nbanana\r\n
@@ -23,9 +26,13 @@ class Parser:
         elif b"PING" in payload.upper():
             return Command.PING,
         elif b"RPUSH" in payload.upper():
+            # Example: *4\r\n$5\r\nRPUSH\r\n$3\r\nfoo\r\n$3\r\nbar\r\n$3\r\nbaz\r\n
             return Command.RPUSH, *self._parse(payload.decode())
+        elif b"LRANGE" in payload.upper():
+            # Example: *4\r\n$6\r\nLRANGE\r\n$8\r\nlist_key\r\n$1\r\n0\r\n$1\r\n1\r\n
+            return Command.LRANGE, *self._parse(payload.decode())
         else:
-            raise RuntimeError("Unknown command")
+            raise RuntimeError(f"Unknown command {payload.decode()}".encode("unicode_escape").decode("utf-8"))
 
     @staticmethod
     def _parse(message: str) -> list[str]:

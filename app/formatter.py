@@ -20,6 +20,11 @@ class Formatter:
     def format_rpush_response(self, values: list[Value]) -> bytes:
         return f":{len(values)}\r\n".encode("utf-8")
 
+    def format_lrange_response(self, values: list[Value]) -> bytes:
+        if not values:
+            return b"*0\r\n"
+        return (f"*{len(values)}\r\n" + "\r\n".join([f"${len(str(v.item))}\r\n{str(v.item)}" for v in values]) + "\r\n").encode("utf-8")
+
 
 
 formatter = Formatter()
