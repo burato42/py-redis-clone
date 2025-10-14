@@ -28,6 +28,7 @@ class Storage:
     def get(self, key: str) -> Any:
         if (
             key in self.data
+            and not isinstance(self.data[key], list) # Not sure that this approach is correct, will check in future
             and self.data[key].expire
             and self.data[key].expire <= datetime.now()
         ):
