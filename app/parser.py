@@ -21,7 +21,7 @@ class Parser:
             # Example: *2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n
             return Command.GET, *self._parse(payload.decode())
         elif b"PING" in payload.upper():
-            return Command.PING, *("PING",),
+            return Command.PING,
         elif b"RPUSH" in payload.upper():
             return Command.RPUSH, *self._parse(payload.decode())
         else:
@@ -44,7 +44,8 @@ class Parser:
                 )  # this is the size of the message, it's not important now
                 expression.append(elements.pop(0))
 
-        return expression
+        # Drop the command name itself
+        return expression[1:]
 
 
 parser = Parser()

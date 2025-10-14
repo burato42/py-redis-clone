@@ -4,8 +4,8 @@ from app.storage import Value
 
 
 class Formatter:
-    def format_echo_expression(self, expression: list[str]) -> bytes:
-        response = f"${len(expression[1])}\r\n{expression[1]}\r\n"
+    def format_echo_expression(self, argument: str) -> bytes:
+        response = f"${len(argument)}\r\n{argument}\r\n"
         return response.encode("utf-8")
 
     def format_ok_expression(self) -> bytes:
