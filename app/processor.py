@@ -3,10 +3,10 @@ from typing import Any
 
 from app.formatter import formatter
 from app.parser import Command
-from app.storage import storage, Value
+from app.storage import Storage, Value
 
 
-async def process_command(command: tuple[Command, str, ...], writer: Any) -> None:
+async def process_command(command: tuple[Command, str, ...], writer: Any, storage: Storage) -> None:
     """Process a command and return the result into the writer."""
     match command:
         case Command.ECHO, *statement:
