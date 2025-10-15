@@ -11,7 +11,6 @@ def storage():
 
 
 class TestStorage:
-
     def test_init(self, storage):
         assert storage.data == {}
 
@@ -32,7 +31,9 @@ class TestStorage:
 
     def test_rpush(self, storage):
         storage.set("key1", Value("value1"))
-        with pytest.raises(RuntimeError, match="Key key1 already exists and it's not a list"):
+        with pytest.raises(
+            RuntimeError, match="Key key1 already exists and it's not a list"
+        ):
             storage.rpush("key1", Value("value2"))
         storage.rpush("key2", Value("value1"))
         assert storage.get("key2") == [Value("value1")]
@@ -41,7 +42,9 @@ class TestStorage:
 
     def test_lpush(self, storage):
         storage.set("key1", Value("value1"))
-        with pytest.raises(RuntimeError, match="Key key1 already exists and it's not a list"):
+        with pytest.raises(
+            RuntimeError, match="Key key1 already exists and it's not a list"
+        ):
             storage.lpush("key1", Value("value2"))
         storage.lpush("key2", Value("value1"))
         assert storage.get("key2") == [Value("value1")]

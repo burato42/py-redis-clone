@@ -13,8 +13,7 @@ class Command(Enum):
 
 
 class Parser:
-
-    def parse_command(self, payload: bytes) -> tuple[Command, ... ]:
+    def parse_command(self, payload: bytes) -> tuple[Command, ...]:
         if b"ECHO" in payload.upper():
             # Example: *2\r\n$4\r\nECHO\r\n$6\r\nbanana\r\n
             return Command.ECHO, *self._parse(payload.decode())
@@ -25,7 +24,7 @@ class Parser:
             # Example: *2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n
             return Command.GET, *self._parse(payload.decode())
         elif b"PING" in payload.upper():
-            return Command.PING,
+            return (Command.PING,)
         elif b"RPUSH" in payload.upper():
             # Example: *4\r\n$5\r\nRPUSH\r\n$3\r\nfoo\r\n$3\r\nbar\r\n$3\r\nbaz\r\n
             return Command.RPUSH, *self._parse(payload.decode())
@@ -36,7 +35,11 @@ class Parser:
             # Example: *4\r\n$5\r\nLPUSH\r\n$3\r\nfoo\r\n$3\r\nbar\r\n$3\r\nbaz\r\n
             return Command.LPUSH, *self._parse(payload.decode())
         else:
-            raise RuntimeError(f"Unknown command {payload.decode()}".encode("unicode_escape").decode("utf-8"))
+            raise RuntimeError(
+                f"Unknown command {payload.decode()}".encode("unicode_escape").decode(
+                    "utf-8"
+                )
+            )
 
     @staticmethod
     def _parse(message: str) -> list[str]:

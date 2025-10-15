@@ -40,22 +40,16 @@ class TestParser:
             )
 
     def test_get(self):
-        cmd = parser.parse_command(
-            b"*2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n"
-        )
+        cmd = parser.parse_command(b"*2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n")
         assert cmd == (Command.GET, "foo")
 
     def test_ping(self):
-        cmd = parser.parse_command(
-            b"+PING\r\n"
-        )
-        assert cmd == (Command.PING, )
+        cmd = parser.parse_command(b"+PING\r\n")
+        assert cmd == (Command.PING,)
 
     def test_unknown_command(self):
         with pytest.raises(RuntimeError):
-            parser.parse_command(
-                b"*2\r\n$3\r\nIMPROVE\r\n$3\r\nfoo\r\n"
-            )
+            parser.parse_command(b"*2\r\n$3\r\nIMPROVE\r\n$3\r\nfoo\r\n")
 
     def test_rpush(self):
         cmd = parser.parse_command(

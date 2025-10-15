@@ -6,7 +6,9 @@ from app.parser import Command
 from app.storage import Storage, Value
 
 
-async def process_command(command: tuple[Command, str, ...], writer: Any, storage: Storage) -> None:
+async def process_command(
+    command: tuple[Command, str, ...], writer: Any, storage: Storage
+) -> None:
     """Process a command and return the result into the writer."""
     match command:
         case Command.ECHO, *statement:
@@ -59,7 +61,9 @@ async def process_command(command: tuple[Command, str, ...], writer: Any, storag
             if not all_values:
                 writer.write(formatter.format_lrange_response(None))
             else:
-                values = all_values[int(statement[1]): int(statement[2]) + 1 or len(all_values)]
+                values = all_values[
+                    int(statement[1]) : int(statement[2]) + 1 or len(all_values)
+                ]
                 writer.write(formatter.format_lrange_response(values))
         case _:
             raise RuntimeError(f"Unknown command: {command}")
