@@ -25,6 +25,15 @@ class Storage:
             raise RuntimeError(f"Key {key} already exists and it's not a list")
         return self.data[key]
 
+    def lpush(self, key: str, value: Value) -> list[Value]:
+        if key in self.data and isinstance(self.data[key], list):
+            self.data[key].insert(0, value)
+        elif key not in self.data:
+            self.data[key] = [value]
+        else:
+            raise RuntimeError(f"Key {key} already exists and it's not a list")
+        return self.data[key]
+
     def get(self, key: str) -> Any:
         if (
             key in self.data

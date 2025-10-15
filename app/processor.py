@@ -42,7 +42,16 @@ async def process_command(command: tuple[Command, str, ...], writer: Any, storag
                 values = storage.rpush(record_key, Value(statement[i]))
             if not values:
                 raise RuntimeError(f"No values for {record_key}")
-            writer.write(formatter.format_rpush_response(values))
+            writer.write(formatter.format_push_response(values))
+        case Command.LPUSH, *statement:
+            # Command example: (Command.LPUSH, "key", "value1", "value2")
+            record_key = statement[0]
+            values = None
+            for i in range(1, len(statement)):
+                values = storage.lpush(record_key, Value(statement[i]))
+            if not values:
+                raise RuntimeError(f"No values for {record_key}")
+            writer.write(formatter.format_push_response(values))
         case Command.LRANGE, *statement:
             # Command example: (Command.LRANGE, "list_key", "0", "1")
             record_key = statement[0]

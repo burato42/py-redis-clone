@@ -68,3 +68,9 @@ class TestParser:
             b"*4\r\n$6\r\nLRANGE\r\n$8\r\nlist_key\r\n$1\r\n0\r\n$1\r\n1\r\n"
         )
         assert cmd == (Command.LRANGE, "list_key", "0", "1")
+
+    def test_lpush(self):
+        cmd = parser.parse_command(
+            b"*4\r\n$5\r\nLPUSH\r\n$3\r\nfoo\r\n$3\r\nbar\r\n$3\r\nbaz\r\n"
+        )
+        assert cmd == (Command.LPUSH, "foo", "bar", "baz")

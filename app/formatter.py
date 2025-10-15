@@ -17,7 +17,7 @@ class Formatter:
         response = f"${len(value.item)}\r\n{value.item}\r\n"
         return response.encode("utf-8")
 
-    def format_rpush_response(self, values: list[Value]) -> bytes:
+    def format_push_response(self, values: list[Value]) -> bytes:
         return f":{len(values)}\r\n".encode("utf-8")
 
     def format_lrange_response(self, values: list[Value]) -> bytes:

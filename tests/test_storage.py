@@ -38,3 +38,12 @@ class TestStorage:
         assert storage.get("key2") == [Value("value1")]
         storage.rpush("key2", Value("value2"))
         assert storage.get("key2") == [Value("value1"), Value("value2")]
+
+    def test_lpush(self, storage):
+        storage.set("key1", Value("value1"))
+        with pytest.raises(RuntimeError, match="Key key1 already exists and it's not a list"):
+            storage.lpush("key1", Value("value2"))
+        storage.lpush("key2", Value("value1"))
+        assert storage.get("key2") == [Value("value1")]
+        storage.lpush("key2", Value("value2"))
+        assert storage.get("key2") == [Value("value2"), Value("value1")]
