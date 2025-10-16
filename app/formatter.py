@@ -1,5 +1,3 @@
-from typing import Any
-
 from app.storage import Value
 
 

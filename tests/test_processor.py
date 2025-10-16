@@ -1,5 +1,4 @@
 import datetime
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -71,3 +70,91 @@ class TestProcessor:
         assert processor_stub.storage.data["foo"].expire == datetime.datetime(
             2020, 1, 1, 0, 0, 0, 123000, tzinfo=datetime.UTC
         )
+
+    async def test_get(self, mock_datetime_now, processor_stub):
+        await processor_stub.process_command((Command.GET, "foo"))
+        assert processor_stub.writer.response.decode() == "$-1\r\n"
+        await processor_stub.process_command((Command.SET, "foo", "bar"))
+        await processor_stub.process_command((Command.GET, "foo"))
+        assert processor_stub.writer.response.decode() == "$3\r\nbar\r\n"
+        await processor_stub.process_command((Command.SET, "foo", "bar", "ex", 45))
+        await processor_stub.process_command((Command.GET, "foo"))
+        assert processor_stub.writer.response.decode() == "$3\r\nbar\r\n"
+        await processor_stub.process_command((Command.SET, "foo", "bar", "ex", -5))
+        await processor_stub.process_command((Command.GET, "foo"))
+        assert processor_stub.writer.response.decode() == "$-1\r\n"
+
+    async def test_ping(self, processor_stub):
+        await processor_stub.process_command((Command.PING,))
+        assert processor_stub.writer.response.decode() == "+PONG\r\n"
+
+    async def test_rpush(self, processor_stub):
+        assert processor_stub.storage.data == {}
+        await processor_stub.process_command((Command.RPUSH, "key", "value1", "value2"))
+        assert processor_stub.writer.response.decode() == ":2\r\n"
+        assert processor_stub.storage.data["key"] == [
+            Value(item="value1", expire=None),
+            Value(item="value2", expire=None),
+        ]
+        await processor_stub.process_command((Command.RPUSH, "key", "value3"))
+        assert processor_stub.writer.response.decode() == ":3\r\n"
+        assert processor_stub.storage.data["key"] == [
+            Value(item="value1", expire=None),
+            Value(item="value2", expire=None),
+            Value(item="value3", expire=None),
+        ]
+
+    async def test_lpush(self, processor_stub):
+        assert processor_stub.storage.data == {}
+        await processor_stub.process_command((Command.LPUSH, "key", "value1", "value2"))
+        assert processor_stub.writer.response.decode() == ":2\r\n"
+        assert processor_stub.storage.data["key"] == [
+            Value(item="value2", expire=None),
+            Value(item="value1", expire=None),
+        ]
+        await processor_stub.process_command((Command.LPUSH, "key", "value3"))
+        assert processor_stub.writer.response.decode() == ":3\r\n"
+        assert processor_stub.storage.data["key"] == [
+            Value(item="value3", expire=None),
+            Value(item="value2", expire=None),
+            Value(item="value1", expire=None),
+        ]
+        await processor_stub.process_command((Command.RPUSH, "key", "value4"))
+        assert processor_stub.writer.response.decode() == ":4\r\n"
+        assert processor_stub.storage.data["key"] == [
+            Value(item="value3", expire=None),
+            Value(item="value2", expire=None),
+            Value(item="value1", expire=None),
+            Value(item="value4", expire=None),
+        ]
+
+    async def test_range(self, processor_stub):
+        assert processor_stub.storage.data == {}
+        await processor_stub.process_command(
+            (Command.RPUSH, "key", "value1", "value2", "value3", "value4", "value5")
+        )
+        assert processor_stub.writer.response.decode() == ":5\r\n"
+        await processor_stub.process_command((Command.LRANGE, "non_existent", "0", "1"))
+        assert processor_stub.writer.response.decode() == "*0\r\n"
+        await processor_stub.process_command((Command.LRANGE, "key", "0", "1"))
+        assert (
+            processor_stub.writer.response.decode()
+            == "*2\r\n$6\r\nvalue1\r\n$6\r\nvalue2\r\n"
+        )
+        await processor_stub.process_command((Command.LRANGE, "key", "3", "10"))
+        assert (
+            processor_stub.writer.response.decode()
+            == "*2\r\n$6\r\nvalue4\r\n$6\r\nvalue5\r\n"
+        )
+        await processor_stub.process_command((Command.LRANGE, "key", "-3", "10"))
+        assert (
+            processor_stub.writer.response.decode()
+            == "*3\r\n$6\r\nvalue3\r\n$6\r\nvalue4\r\n$6\r\nvalue5\r\n"
+        )
+
+    async def test_len(self, processor_stub):
+        await processor_stub.process_command(
+            (Command.RPUSH, "key", "value1", "value2", "value3", "value4", "value5")
+        )
+        await processor_stub.process_command((Command.LLEN, "key"))
+        assert processor_stub.writer.response.decode() == ":5\r\n"

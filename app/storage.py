@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+import datetime
 from typing import Any, Optional
 
 
@@ -41,7 +41,7 @@ class Storage:
                 self.data[key], list
             )  # Not sure that this approach is correct, will check in future
             and self.data[key].expire
-            and self.data[key].expire <= datetime.now()
+            and self.data[key].expire <= datetime.datetime.now()
         ):
             return None
         return self.data.get(key)
