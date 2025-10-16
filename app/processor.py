@@ -1,10 +1,16 @@
 import datetime  # use this way to keep tests working
+from enum import Enum
 
 from typing import Any
 
 from app.formatter import formatter
 from app.parser import Command
 from app.storage import Storage, Value
+
+
+class Push(Enum):
+    RIGHT = 1
+    LEFT = 2
 
 
 class Processor:
@@ -17,68 +23,84 @@ class Processor:
         match command:
             case Command.ECHO, *statement:
                 # Command example: (Command.ECHO, "banana")
-                self.writer.write(formatter.format_echo_expression(statement[0]))
+                self._process_echo_command(statement)
             case Command.SET, *statement:
                 # Command example: (Command.SET, "foo", "bar", "PX", 100)
-                # TODO Add check that only optional either EX or PX are possible
-                record_key = statement[0]
-                record_value = statement[1]
-                if len(statement) > 2:
-                    expiration = (
-                        datetime.datetime.now()
-                        + datetime.timedelta(seconds=int(statement[3]))
-                        if statement[2].upper() == "EX"
-                        else datetime.datetime.now()
-                        + datetime.timedelta(milliseconds=int(statement[3]))
-                    )
-                else:
-                    expiration = None
-                self.storage.set(record_key, Value(record_value, expiration))
-                self.writer.write(formatter.format_ok_expression())
+                self._process_set_command(statement)
             case Command.GET, *statement:
                 # Command example: (Command.GET, "foo")
-                value = self.storage.get(statement[0])
-                self.writer.write(formatter.format_get_response(value))
+                self._process_get_command(statement)
             case Command.PING, *_:
                 # Command example: (Command.PING,)
-                self.writer.write(b"+PONG\r\n")
+                self._process_ping_command()
             case Command.RPUSH, *statement:
                 # Command example: (Command.RPUSH, "key", "value1", "value2")
-                record_key = statement[0]
-                values = None
-                for i in range(1, len(statement)):
-                    values = self.storage.rpush(record_key, Value(statement[i]))
-                if not values:
-                    raise RuntimeError(f"No values for {record_key}")
-                self.writer.write(formatter.format_len_response(values))
+                self._process_push_command(Push.RIGHT, statement)
             case Command.LPUSH, *statement:
                 # Command example: (Command.LPUSH, "key", "value1", "value2")
-                record_key = statement[0]
-                values = None
-                for i in range(1, len(statement)):
-                    values = self.storage.lpush(record_key, Value(statement[i]))
-                if not values:
-                    raise RuntimeError(f"No values for {record_key}")
-                self.writer.write(formatter.format_len_response(values))
+                self._process_push_command(Push.LEFT, statement)
             case Command.LRANGE, *statement:
                 # Command example: (Command.LRANGE, "list_key", "0", "1")
-                record_key = statement[0]
-                all_values = self.storage.get(record_key)
-                if not all_values:
-                    self.writer.write(formatter.format_lrange_response(None))
-                else:
-                    values = all_values[
-                        int(statement[1]) : int(statement[2]) + 1 or len(all_values)
-                    ]
-                    self.writer.write(formatter.format_lrange_response(values))
+                self._process_range_command(statement)
             case Command.LLEN, *statement:
                 # Command example: (Command.LLEN, "list_key")
-                record_key = statement[0]
-                all_values = self.storage.get(record_key)
-                if not all_values or not isinstance(all_values, list):
-                    self.writer.write(formatter.format_len_response([]))
-                else:
-                    self.writer.write(formatter.format_len_response(all_values))
+                self._process_len_command(statement)
             case _:
                 raise RuntimeError(f"Unknown command: {command}")
         await self.writer.drain()
+
+    def _process_echo_command(self, args: list[str]) -> None:
+        self.writer.write(formatter.format_echo_expression(args[0]))
+
+    def _process_ping_command(self):
+        self.writer.write(b"+PONG\r\n")
+
+    def _process_set_command(self, args: list[str]) -> None:
+        # TODO Add check that only optional either EX or PX are possible
+        record_key = args[0]
+        record_value = args[1]
+        if len(args) > 2:
+            expiration = (
+                datetime.datetime.now() + datetime.timedelta(seconds=int(args[3]))
+                if args[2].upper() == "EX"
+                else datetime.datetime.now()
+                + datetime.timedelta(milliseconds=int(args[3]))
+            )
+        else:
+            expiration = None
+        self.storage.set(record_key, Value(record_value, expiration))
+        self.writer.write(formatter.format_ok_expression())
+
+    def _process_get_command(self, args: list[str]) -> None:
+        value = self.storage.get(args[0])
+        self.writer.write(formatter.format_get_response(value))
+
+    def _process_push_command(self, push: Push, args: list[str]) -> None:
+        record_key = args[0]
+        values = None
+        for i in range(1, len(args)):
+            match push:
+                case Push.RIGHT:
+                    values = self.storage.rpush(record_key, Value(args[i]))
+                case Push.LEFT:
+                    values = self.storage.lpush(record_key, Value(args[i]))
+        if not values:
+            raise RuntimeError(f"No values for {record_key}")
+        self.writer.write(formatter.format_len_response(values))
+
+    def _process_range_command(self, args: list[str]) -> None:
+        record_key = args[0]
+        all_values = self.storage.get(record_key)
+        if not all_values:
+            self.writer.write(formatter.format_lrange_response(None))
+        else:
+            values = all_values[int(args[1]) : int(args[2]) + 1 or len(all_values)]
+            self.writer.write(formatter.format_lrange_response(values))
+
+    def _process_len_command(self, args: list[str]) -> None:
+        record_key = args[0]
+        all_values = self.storage.get(record_key)
+        if not all_values or not isinstance(all_values, list):
+            self.writer.write(formatter.format_len_response([]))
+        else:
+            self.writer.write(formatter.format_len_response(all_values))
