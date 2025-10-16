@@ -112,5 +112,12 @@ class Processor:
         all_values = self.storage.get(record_key)
         if not all_values or not isinstance(all_values, list):
             self.writer.write(formatter.format_get_response(None))
+        elif len(args) == 2:
+            queried = []
+            for _ in range(int(args[1])):
+                if not all_values:
+                    break
+                queried.append(all_values.pop(0))
+            self.writer.write(formatter.format_lrange_response(queried))
         else:
             self.writer.write(formatter.format_get_response(all_values.pop(0)))

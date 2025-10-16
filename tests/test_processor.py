@@ -167,4 +167,23 @@ class TestProcessor:
         )
         await processor_stub.process_command((Command.LPOP, "key"))
         assert processor_stub.writer.response.decode() == "$6\r\nvalue1\r\n"
-        assert processor_stub.storage.data["key"] == [Value(item="value2", expire=None), Value(item="value3", expire=None)]
+        assert processor_stub.storage.data["key"] == [
+            Value(item="value2", expire=None),
+            Value(item="value3", expire=None),
+        ]
+
+    async def test_lpop_multiple(self, processor_stub):
+        await processor_stub.process_command(
+            (Command.RPUSH, "key", "value1", "value2", "value3")
+        )
+        await processor_stub.process_command((Command.LPOP, "key", "2"))
+        assert (
+            processor_stub.writer.response.decode()
+            == "*2\r\n$6\r\nvalue1\r\n$6\r\nvalue2\r\n"
+        )
+        assert processor_stub.storage.data["key"] == [
+            Value(item="value3", expire=None),
+        ]
+        await processor_stub.process_command((Command.LPOP, "key", "2"))
+        assert processor_stub.writer.response.decode() == "*1\r\n$6\r\nvalue3\r\n"
+        assert processor_stub.storage.data["key"] == []

@@ -76,3 +76,7 @@ class TestParser:
     def test_lpop(self):
         cmd = parser.parse_command(b"*2\r\n$4\r\nLPOP\r\n$3\r\nfoo\r\n")
         assert cmd == (Command.LPOP, "foo")
+
+    def test_multiple_lpop(self):
+        cmd = parser.parse_command(b"*3\r\n$4\r\nLPOP\r\n$3\r\nfoo\r\n$1\r\n3\r\n")
+        assert cmd == (Command.LPOP, "foo", "3")
