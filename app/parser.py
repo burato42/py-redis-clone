@@ -10,6 +10,7 @@ class Command(Enum):
     RPUSH = 5
     LRANGE = 6
     LPUSH = 7
+    LLEN = 8
 
 
 class Parser:
@@ -34,6 +35,9 @@ class Parser:
         elif b"LPUSH" in payload.upper():
             # Example: *4\r\n$5\r\nLPUSH\r\n$3\r\nfoo\r\n$3\r\nbar\r\n$3\r\nbaz\r\n
             return Command.LPUSH, *self._parse(payload.decode())
+        elif b"LLEN" in payload.upper():
+            # Example: *2\r\n$4\r\nLLEN\r\n$3\r\nfoo\r\n
+            return Command.LLEN, *self._parse(payload.decode())
         else:
             raise RuntimeError(
                 f"Unknown command {payload.decode()}".encode("unicode_escape").decode(

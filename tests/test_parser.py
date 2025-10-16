@@ -68,3 +68,7 @@ class TestParser:
             b"*4\r\n$5\r\nLPUSH\r\n$3\r\nfoo\r\n$3\r\nbar\r\n$3\r\nbaz\r\n"
         )
         assert cmd == (Command.LPUSH, "foo", "bar", "baz")
+
+    def test_llen(self):
+        cmd = parser.parse_command(b"*2\r\n$4\r\nLLEN\r\n$3\r\nfoo\r\n")
+        assert cmd == (Command.LLEN, "foo")
