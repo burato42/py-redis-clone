@@ -45,6 +45,8 @@ class Processor:
             case Command.LLEN, *statement:
                 # Command example: (Command.LLEN, "list_key")
                 self._process_len_command(statement)
+            case Command.LPOP, *statement:
+                self._process_lpop_command(statement)
             case _:
                 raise RuntimeError(f"Unknown command: {command}")
         await self.writer.drain()
@@ -104,3 +106,11 @@ class Processor:
             self.writer.write(formatter.format_len_response([]))
         else:
             self.writer.write(formatter.format_len_response(all_values))
+
+    def _process_lpop_command(self, args: list[str]) -> None:
+        record_key = args[0]
+        all_values = self.storage.get(record_key)
+        if not all_values or not isinstance(all_values, list):
+            self.writer.write(formatter.format_get_response(None))
+        else:
+            self.writer.write(formatter.format_get_response(all_values.pop(0)))

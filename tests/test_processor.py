@@ -158,3 +158,13 @@ class TestProcessor:
         )
         await processor_stub.process_command((Command.LLEN, "key"))
         assert processor_stub.writer.response.decode() == ":5\r\n"
+
+    async def test_lpop(self, processor_stub):
+        await processor_stub.process_command((Command.LPOP, "key"))
+        assert processor_stub.writer.response.decode() == "$-1\r\n"
+        await processor_stub.process_command(
+            (Command.RPUSH, "key", "value1", "value2", "value3")
+        )
+        await processor_stub.process_command((Command.LPOP, "key"))
+        assert processor_stub.writer.response.decode() == "$6\r\nvalue1\r\n"
+        assert processor_stub.storage.data["key"] == [Value(item="value2", expire=None), Value(item="value3", expire=None)]
