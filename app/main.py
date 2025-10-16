@@ -1,7 +1,7 @@
 import asyncio
 
 from app.parser import parser
-from app.processor import process_command
+from app.processor import Processor
 from app.storage import storage
 
 
@@ -14,7 +14,8 @@ async def handle_client(reader, writer):
             if not data:
                 break
             cmd = parser.parse_command(data)
-            await process_command(cmd, writer, storage)
+            processor = Processor(writer, storage)
+            await processor.process_command(cmd)
     except Exception as e:
         print(f"Error: {e}")
     finally:
