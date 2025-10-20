@@ -16,6 +16,7 @@ class Command(Enum):
 
 class Parser:
     def parse_command(self, payload: bytes) -> tuple[Command, ...]:
+        # TODO Use registry pattern here
         if b"ECHO" in payload.upper():
             # Example: *2\r\n$4\r\nECHO\r\n$6\r\nbanana\r\n
             return Command.ECHO, *self._parse(payload.decode())

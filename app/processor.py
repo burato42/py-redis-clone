@@ -21,6 +21,7 @@ class Processor:
 
     async def process_command(self, command: tuple[Command, str, ...]) -> None:
         """Process a command and return the result into the writer."""
+        # TODO Use registry pattern here
         match command:
             case Command.ECHO, *statement:
                 # Command example: (Command.ECHO, "banana")
@@ -138,6 +139,7 @@ class Processor:
             if not all_values or not isinstance(all_values, list):
                 self.writer.write(formatter.format_get_response(None))
             else:
-                self.writer.write(formatter.format_lrange_response([Value(record_key)] + [all_values.pop(0)]))
+                key_and_value = [Value(record_key), all_values.pop(0)]
+                self.writer.write(formatter.format_lrange_response(key_and_value))
         except asyncio.TimeoutError:
             self.writer.write(formatter.format_get_response(None))
