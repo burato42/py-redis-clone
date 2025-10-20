@@ -228,13 +228,13 @@ class TestProcessor:
 
     async def test_blpop_list_timeout_exceeded(self, processor_stub):
         async def set_after_delay():
-            await asyncio.sleep(1.01)
+            await asyncio.sleep(0.51)
             await processor_stub.process_command((Command.RPUSH, "key", "value1", "value2"))
 
         await asyncio.gather(
-            processor_stub.process_command((Command.BLPOP, "key", "1")),
+            processor_stub.process_command((Command.BLPOP, "key", "0.5")),
             set_after_delay()
         )
 
-        assert processor_stub.writer.response[0].decode() == "$-1\r\n"
+        assert processor_stub.writer.response[0].decode() == "*-1\r\n"
         assert processor_stub.writer.response[1].decode() == ":2\r\n"

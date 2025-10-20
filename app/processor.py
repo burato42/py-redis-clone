@@ -130,7 +130,7 @@ class Processor:
     async def _process_blpop_command(self, args: list[str]) -> None:
         record_key = args[0]
         if len(args) >= 2 and args[1] != "0":
-            timeout = int(args[1])
+            timeout = float(args[1])
         else:
             timeout = None
 
@@ -142,4 +142,4 @@ class Processor:
                 key_and_value = [Value(record_key), all_values.pop(0)]
                 self.writer.write(formatter.format_lrange_response(key_and_value))
         except asyncio.TimeoutError:
-            self.writer.write(formatter.format_get_response(None))
+            self.writer.write(formatter.format_null_array_response())
