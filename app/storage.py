@@ -15,6 +15,18 @@ class Storage:
         self.data: dict[Any, Any] = {}
         self.conditions: dict[Any, asyncio.Condition] = {}
 
+    def get(self, key: str) -> Any:
+        if (
+            key in self.data
+            and not isinstance(
+                self.data[key], list
+            )  # Not sure that this approach is correct, will check in future
+            and self.data[key].expire
+            and self.data[key].expire <= datetime.datetime.now()
+        ):
+            return None
+        return self.data.get(key)
+
     async def get_blocking(self, key, timeout=None):
         if key in self.data:
             return self.data.get(key)
@@ -36,9 +48,6 @@ class Storage:
         if key in self.conditions:
             async with self.conditions[key]:
                 self.conditions[key].notify_all()
-
-    # def set(self, key: str, value: Value) -> None:
-    #     self.data[key] = value
 
     async def rpush(self, key: str, values: list[Value]) -> list[Value]:
         if key in self.data and isinstance(self.data[key], list):
@@ -63,18 +72,6 @@ class Storage:
             async with self.conditions[key]:
                 self.conditions[key].notify_all()
         return self.data[key]
-
-    def get(self, key: str) -> Any:
-        if (
-            key in self.data
-            and not isinstance(
-                self.data[key], list
-            )  # Not sure that this approach is correct, will check in future
-            and self.data[key].expire
-            and self.data[key].expire <= datetime.datetime.now()
-        ):
-            return None
-        return self.data.get(key)
 
 
 storage = Storage()

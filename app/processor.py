@@ -1,3 +1,4 @@
+import asyncio
 import datetime  # use this way to keep tests working
 from enum import Enum
 
@@ -49,7 +50,7 @@ class Processor:
                 # Command example: (Command.BLPOP, "mango", "0")
                 await self._process_blpop_command(statement)
             case Command.LPOP, *statement:
-                # Command example: (Command.BLPOP, "mango")
+                # Command example: (Command.LPOP, "mango")
                 self._process_lpop_command(statement)
             case _:
                 raise RuntimeError(f"Unknown command: {command}")
@@ -131,9 +132,12 @@ class Processor:
             timeout = int(args[1])
         else:
             timeout = None
-        all_values = await self.storage.get_blocking(record_key, timeout)
-        print(all_values)
-        if not all_values or not isinstance(all_values, list):
+
+        try:
+            all_values = await self.storage.get_blocking(record_key, timeout)
+            if not all_values or not isinstance(all_values, list):
+                self.writer.write(formatter.format_get_response(None))
+            else:
+                self.writer.write(formatter.format_lrange_response([Value(record_key)] + [all_values.pop(0)]))
+        except asyncio.TimeoutError:
             self.writer.write(formatter.format_get_response(None))
-        else:
-            self.writer.write(formatter.format_lrange_response([Value(record_key)] + [all_values.pop(0)]))

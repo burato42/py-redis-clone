@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta
 
 import pytest
@@ -54,3 +55,47 @@ class TestStorage:
         assert storage.get("key2") == [Value("value1")]
         await storage.lpush("key2", [Value("value2")])
         assert storage.get("key2") == [Value("value2"), Value("value1")]
+
+    @pytest.mark.asyncio
+    async def test_get_blocking(self, storage):
+        await storage.set("key1", Value("value1"))
+        assert await storage.get_blocking("key1") == Value("value1")
+
+    @pytest.mark.asyncio
+    async def test_get_blocking_wait(self, storage):
+        async def set_after_delay():
+            await asyncio.sleep(0.01)  # Small delay
+            await storage.set("key1", Value("value1"))
+
+        value, _ = await asyncio.gather(
+            storage.get_blocking("key1"),
+            set_after_delay()
+        )
+
+        assert value == Value("value1")
+
+    @pytest.mark.asyncio
+    async def test_get_blocking_timeout(self, storage):
+        async def set_after_delay():
+            await asyncio.sleep(0.01)  # Small delay
+            await storage.set("key1", Value("value1"))
+
+        value, _ = await asyncio.gather(
+            storage.get_blocking("key1", 1),
+            set_after_delay()
+        )
+
+        assert value == Value("value1")
+
+    @pytest.mark.asyncio
+    async def test_get_blocking_timeout_exceeded(self, storage):
+        async def set_after_delay():
+            await asyncio.sleep(1.01)
+            await storage.set("key1", Value("value1"))
+
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.gather(
+                storage.get_blocking("key1", 1),
+                set_after_delay()
+            )
+
