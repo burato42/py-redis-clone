@@ -12,109 +12,41 @@ class Command(Enum):
     LLEN = 8
     LPOP = 9
     BLPOP = 10
-
-
-class CommandRegistry:
-    """Registry for command parsers"""
-
-    def __init__(self):
-        self._parsers = {}
-
-    def register(self, command_name: str, command_enum: Command):
-        """Decorator to register a command parser"""
-
-        def decorator(parser_func):
-            self._parsers[command_name.upper()] = (command_enum, parser_func)
-            return parser_func
-
-        return decorator
-
-    def get_parser(self, command_name: str):
-        """Get parser for a command name"""
-        return self._parsers.get(command_name.upper())
-
-    def list_commands(self):
-        """List all registered commands"""
-        return list(self._parsers.keys())
+    TYPE = 11
 
 
 class Parser:
-    def __init__(self):
-        self.registry = CommandRegistry()
-        self._register_commands()
 
-    def _register_commands(self):
-        """Register all command parsers"""
-
-        @self.registry.register("ECHO", Command.ECHO)
-        def parse_echo(payload: str):
-            # Example: *2\r\n$4\r\nECHO\r\n$6\r\nbanana\r\n
-            return self._parse(payload)
-
-        @self.registry.register("SET", Command.SET)
-        def parse_set(payload: str):
-            # Example: *3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n
-            return self._parse(payload)
-
-        @self.registry.register("GET", Command.GET)
-        def parse_get(payload: str):
-            # Example: *2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n
-            return self._parse(payload)
-
-        @self.registry.register("PING", Command.PING)
-        def parse_ping(payload: str):
-            return []
-
-        @self.registry.register("RPUSH", Command.RPUSH)
-        def parse_rpush(payload: str):
-            # Example: *4\r\n$5\r\nRPUSH\r\n$3\r\nfoo\r\n$3\r\nbar\r\n$3\r\nbaz\r\n
-            return self._parse(payload)
-
-        @self.registry.register("LRANGE", Command.LRANGE)
-        def parse_lrange(payload: str):
-            # Example: *4\r\n$6\r\nLRANGE\r\n$8\r\nlist_key\r\n$1\r\n0\r\n$1\r\n1\r\n
-            return self._parse(payload)
-
-        @self.registry.register("LPUSH", Command.LPUSH)
-        def parse_lpush(payload: str):
-            # Example: *4\r\n$5\r\nLPUSH\r\n$3\r\nfoo\r\n$3\r\nbar\r\n$3\r\nbaz\r\n
-            return self._parse(payload)
-
-        @self.registry.register("LLEN", Command.LLEN)
-        def parse_llen(payload: str):
-            # Example: *2\r\n$4\r\nLLEN\r\n$3\r\nfoo\r\n
-            return self._parse(payload)
-
-        @self.registry.register("BLPOP", Command.BLPOP)
-        def parse_blpop(payload: str):
-            # Example: *2\r\n$5\r\nBLPOP\r\n$3\r\nfoo\r\n
-            return self._parse(payload)
-
-        @self.registry.register("LPOP", Command.LPOP)
-        def parse_lpop(payload: str):
-            # Example: *2\r\n$4\r\nLPOP\r\n$3\r\nfoo\r\n
-            return self._parse(payload)
+    COMMAND_MAP = {
+        "ECHO": Command.ECHO,
+        "SET": Command.SET,
+        "GET": Command.GET,
+        "PING": Command.PING,
+        "RPUSH": Command.RPUSH,
+        "LRANGE": Command.LRANGE,
+        "LPUSH": Command.LPUSH,
+        "LLEN": Command.LLEN,
+        "LPOP": Command.LPOP,
+        "BLPOP": Command.BLPOP,
+        "TYPE": Command.TYPE,
+    }
 
     def parse_command(self, payload: bytes) -> tuple[Command, ...]:
-        """Parse command from payload using registry"""
+        """Parse command from payload"""
         decoded = payload.decode()
 
-        # Extract command name from payload
         command_name = self._extract_command_name(decoded)
+        command_enum = self.COMMAND_MAP.get(command_name)
 
-        # Look up parser in registry
-        parser_info = self.registry.get_parser(command_name)
-
-        if parser_info is None:
+        if command_enum is None:
             raise RuntimeError(
                 f"Unknown command {decoded}".encode("unicode_escape").decode("utf-8")
             )
 
-        command_enum, parser_func = parser_info
+        if command_enum == Command.PING:
+            return (command_enum,)
 
-        # Parse arguments using the registered parser
-        args = parser_func(decoded)
-
+        args = self._parse(decoded)
         return command_enum, *args
 
     def _extract_command_name(self, message: str) -> str:

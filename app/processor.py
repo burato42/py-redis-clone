@@ -1,7 +1,7 @@
 import asyncio
 import datetime  # use this way to keep tests working
 from enum import Enum
-from typing import Any, Callable, Awaitable
+from typing import Any, Callable
 
 from app.formatter import formatter
 from app.parser import Command
@@ -77,7 +77,7 @@ class Processor:
             self.writer.write(formatter.format_get_response(value))
 
         @self.registry.register(Command.PING)
-        async def handle_ping(args: list[str]) -> None:
+        async def handle_ping(_: list[str]) -> None:
             # Command example: (Command.PING,)
             self.writer.write(b"+PONG\r\n")
 
