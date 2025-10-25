@@ -148,6 +148,14 @@ class Processor:
             else:
                 self.writer.write(formatter.format_get_response(all_values.pop(0)))
 
+        @self.registry.register(Command.TYPE)
+        async def handle_type(args: list[str]) -> None:
+            # Command example: (Command.TYPE, "foo")
+            record_key = args[0]
+            record_type = self.storage.get_type(record_key)
+            self.writer.write(formatter.format_type_response(record_type))
+
+
     async def process_command(self, command: tuple[Command, str, ...]) -> None:
         """Process a command and return the result into the writer."""
         if not command:

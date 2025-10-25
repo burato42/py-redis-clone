@@ -1,7 +1,20 @@
 import asyncio
 from dataclasses import dataclass
 import datetime
+from enum import Enum
 from typing import Any, Optional
+from unittest import case
+
+
+class ValueType(Enum):
+    NONE = 0
+    STRING = 1
+    LIST = 2
+    SET = 3
+    ZSET = 4
+    HASH = 5
+    STREAM = 6
+    VECTORSET = 7
 
 
 @dataclass
@@ -72,6 +85,20 @@ class Storage:
             async with self.conditions[key]:
                 self.conditions[key].notify_all()
         return self.data[key]
+
+    def get_type(self, key: str) -> ValueType:
+        if key not in self.data:
+            return ValueType.NONE
+        match self.data[key]:
+            case Value():
+                return ValueType.STRING
+            case list():
+                return ValueType.LIST
+            case set():
+                return ValueType.SET
+            case _:
+                return ValueType.NONE
+
 
 
 storage = Storage()

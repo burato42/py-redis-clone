@@ -1,4 +1,4 @@
-from app.storage import Value
+from app.storage import Value, ValueType
 
 
 class Formatter:
@@ -29,6 +29,9 @@ class Formatter:
 
     def format_null_array_response(self) -> bytes:
         return b"*-1\r\n"
+
+    def format_type_response(self, record_type: ValueType) -> bytes:
+        return f"+{record_type.name.lower()}\r\n".encode("utf-8")
 
 
 formatter = Formatter()

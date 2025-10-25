@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app.storage import Storage, Value
+from app.storage import Storage, Value, ValueType
 
 
 @pytest.fixture(scope="function")
@@ -99,3 +99,10 @@ class TestStorage:
                 set_after_delay()
             )
 
+    @pytest.mark.asyncio
+    async def test_type(self, storage):
+        assert storage.get_type("key1") == ValueType.NONE
+        await storage.set("key1", Value("value1"))
+        assert storage.get_type("key1") == ValueType.STRING
+        await storage.rpush("key2", [Value("value1"), Value("value2")])
+        assert storage.get_type("key2") == ValueType.LIST

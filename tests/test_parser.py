@@ -84,3 +84,7 @@ class TestParser:
     def test_rpop(self):
         cmd = parser.parse_command(b"*3\r\n$5\r\nBLPOP\r\n$5\r\nmango\r\n$1\r\n0\r\n")
         assert cmd == (Command.BLPOP, "mango", "0")
+
+    def test_type(self):
+        cmd = parser.parse_command(b"*2\r\n$4\r\nTYPE\r\n$3\r\nfoo\r\n")
+        assert cmd == (Command.TYPE, "foo")

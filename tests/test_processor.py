@@ -238,3 +238,13 @@ class TestProcessor:
 
         assert processor_stub.writer.response[0].decode() == "*-1\r\n"
         assert processor_stub.writer.response[1].decode() == ":2\r\n"
+
+    async def test_get_type(self, processor_stub):
+        await processor_stub.process_command((Command.TYPE, "key1"))
+        assert processor_stub.writer.response[0].decode() == "+none\r\n"
+        await processor_stub.process_command((Command.SET, "key2", "bar"))
+        await processor_stub.process_command((Command.TYPE, "key2"))
+        assert processor_stub.writer.response[2].decode() == "+string\r\n"
+        await processor_stub.process_command((Command.RPUSH, "key", "value1", "value2"))
+        await processor_stub.process_command((Command.TYPE, "key"))
+        assert processor_stub.writer.response[4].decode() == "+list\r\n"
