@@ -1,3 +1,5 @@
+from typing import Optional
+
 from app.storage import Value, ValueType
 
 
@@ -9,7 +11,7 @@ class Formatter:
     def format_ok_expression(self) -> bytes:
         return b"+OK\r\n"
 
-    def format_get_response(self, value: Value) -> bytes:
+    def format_get_response(self, value: Optional[Value]) -> bytes:
         if not value:
             return b"$-1\r\n"
         response = f"${len(value.item)}\r\n{value.item}\r\n"
@@ -18,7 +20,7 @@ class Formatter:
     def format_len_response(self, values: list[Value]) -> bytes:
         return f":{len(values)}\r\n".encode("utf-8")
 
-    def format_lrange_response(self, values: list[Value]) -> bytes:
+    def format_lrange_response(self, values: Optional[list[Value]]) -> bytes:
         if not values:
             return b"*0\r\n"
         return (

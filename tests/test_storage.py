@@ -68,10 +68,7 @@ class TestStorage:
             await asyncio.sleep(0.01)  # Small delay
             await storage.set("key1", Value("value1"))
 
-        value, _ = await asyncio.gather(
-            storage.get_blocking("key1"),
-            set_after_delay()
-        )
+        value, _ = await asyncio.gather(storage.get_blocking("key1"), set_after_delay())
 
         assert value == Value("value1")
 
@@ -82,8 +79,7 @@ class TestStorage:
             await storage.set("key1", Value("value1"))
 
         value, _ = await asyncio.gather(
-            storage.get_blocking("key1", 1),
-            set_after_delay()
+            storage.get_blocking("key1", 1), set_after_delay()
         )
 
         assert value == Value("value1")
@@ -95,10 +91,7 @@ class TestStorage:
             await storage.set("key1", Value("value1"))
 
         with pytest.raises(asyncio.TimeoutError):
-            await asyncio.gather(
-                storage.get_blocking("key1", 1),
-                set_after_delay()
-            )
+            await asyncio.gather(storage.get_blocking("key1", 1), set_after_delay())
 
     @pytest.mark.asyncio
     async def test_type(self, storage):
@@ -113,4 +106,5 @@ class TestStorage:
         assert storage.data.get("key1") == deque([Value({"foo": "bar", "baz": "qux"})])
         storage.set_stream("key1", Value({"bar": "foo", "baz": "qux"}))
         assert storage.data.get("key1") == deque(
-            [Value({"foo": "bar", "baz": "qux"}), Value({"bar": "foo", "baz": "qux"})])
+            [Value({"foo": "bar", "baz": "qux"}), Value({"bar": "foo", "baz": "qux"})]
+        )

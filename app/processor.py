@@ -63,7 +63,7 @@ class Processor:
                     datetime.datetime.now() + datetime.timedelta(seconds=int(args[3]))
                     if args[2].upper() == "EX"
                     else datetime.datetime.now()
-                         + datetime.timedelta(milliseconds=int(args[3]))
+                    + datetime.timedelta(milliseconds=int(args[3]))
                 )
             else:
                 expiration = None
@@ -99,7 +99,7 @@ class Processor:
             if not all_values:
                 self.writer.write(formatter.format_lrange_response(None))
             else:
-                values = all_values[int(args[1]): int(args[2]) + 1 or len(all_values)]
+                values = all_values[int(args[1]) : int(args[2]) + 1 or len(all_values)]
                 self.writer.write(formatter.format_lrange_response(values))
 
         @self.registry.register(Command.LLEN)
@@ -168,7 +168,7 @@ class Processor:
             self.storage.set_stream(record_key, Value(obj))
             self.writer.write(formatter.format_string_expression(stream_key))
 
-    async def process_command(self, command: tuple[Command, str, ...]) -> None:
+    async def process_command(self, command: tuple[Command, *tuple[str]]) -> None:
         """Process a command and return the result into the writer."""
         if not command:
             raise RuntimeError("Empty command")
@@ -189,9 +189,13 @@ class Processor:
         values = None
         match push:
             case Push.RIGHT:
-                values = await self.storage.rpush(record_key, [Value(val) for val in args[1:]])
+                values = await self.storage.rpush(
+                    record_key, [Value(val) for val in args[1:]]
+                )
             case Push.LEFT:
-                values = await self.storage.lpush(record_key, [Value(val) for val in args[-1: 0: -1]])
+                values = await self.storage.lpush(
+                    record_key, [Value(val) for val in args[-1:0:-1]]
+                )
         if not values:
             raise RuntimeError(f"No values for {record_key}")
         self.writer.write(formatter.format_len_response(values))

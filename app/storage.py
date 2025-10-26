@@ -4,7 +4,6 @@ from dataclasses import dataclass
 import datetime
 from enum import Enum
 from typing import Any, Optional
-from unittest import case
 
 
 class ValueType(Enum):
@@ -21,7 +20,7 @@ class ValueType(Enum):
 @dataclass
 class Value:
     item: Any
-    expire: Optional[datetime] = None
+    expire: Optional[datetime.datetime] = None
 
 
 class Storage:
@@ -41,7 +40,7 @@ class Storage:
             return None
         return self.data.get(key)
 
-    async def get_blocking(self, key, timeout=None):
+    async def get_blocking(self, key: str, timeout=None):
         if key in self.data:
             return self.data.get(key)
 
@@ -50,24 +49,24 @@ class Storage:
 
         async with self.conditions[key]:
             await asyncio.wait_for(
-                self.conditions[key].wait_for(lambda: key in self.data),
-                timeout
+                self.conditions[key].wait_for(lambda: key in self.data), timeout
             )
-            del self.conditions[key] # Is this necessary?
+            del self.conditions[key]  # Is this necessary?
             return self.data.get(key)
 
-    async def set(self, key, value) -> None:
+    async def set(self, key: str, value: Value) -> None:
         self.data[key] = value
 
         if key in self.conditions:
             async with self.conditions[key]:
                 self.conditions[key].notify_all()
 
-    def set_stream(self, key, value) -> None:
-        if not key in self.data:
+    def set_stream(self, key: str, value: Value) -> None:
+        if key not in self.data:
             self.data[key] = deque([value])
-        else:
-            self.data[key].append(value)
+            return
+
+        self.data[key].append(value)
 
     async def rpush(self, key: str, values: list[Value]) -> list[Value]:
         if key in self.data and isinstance(self.data[key], list):
@@ -107,7 +106,6 @@ class Storage:
                 return ValueType.STREAM
             case _:
                 return ValueType.NONE
-
 
 
 storage = Storage()

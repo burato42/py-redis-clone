@@ -17,7 +17,6 @@ class Command(Enum):
 
 
 class Parser:
-
     COMMAND_MAP = {
         "ECHO": Command.ECHO,
         "SET": Command.SET,
@@ -33,7 +32,7 @@ class Parser:
         "XADD": Command.XADD,
     }
 
-    def parse_command(self, payload: bytes) -> tuple[Command, ...]:
+    def parse_command(self, payload: bytes) -> tuple[Command, *tuple[str, ...]]:
         """Parse command from payload"""
         decoded = payload.decode()
 

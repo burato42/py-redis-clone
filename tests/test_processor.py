@@ -205,35 +205,46 @@ class TestProcessor:
     async def test_blpop_list(self, processor_stub):
         async def set_after_delay():
             await asyncio.sleep(0.01)
-            await processor_stub.process_command((Command.RPUSH, "key", "value1", "value2"))
+            await processor_stub.process_command(
+                (Command.RPUSH, "key", "value1", "value2")
+            )
 
         await asyncio.gather(
-            processor_stub.process_command((Command.BLPOP, "key")),
-            set_after_delay()
+            processor_stub.process_command((Command.BLPOP, "key")), set_after_delay()
         )
 
-        assert processor_stub.writer.response[1].decode() == "*2\r\n$3\r\nkey\r\n$6\r\nvalue1\r\n"
+        assert (
+            processor_stub.writer.response[1].decode()
+            == "*2\r\n$3\r\nkey\r\n$6\r\nvalue1\r\n"
+        )
 
     async def test_blpop_list_timeout(self, processor_stub):
         async def set_after_delay():
             await asyncio.sleep(0.01)
-            await processor_stub.process_command((Command.RPUSH, "key", "value1", "value2"))
+            await processor_stub.process_command(
+                (Command.RPUSH, "key", "value1", "value2")
+            )
 
         await asyncio.gather(
             processor_stub.process_command((Command.BLPOP, "key", "1")),
-            set_after_delay()
+            set_after_delay(),
         )
 
-        assert processor_stub.writer.response[1].decode() == "*2\r\n$3\r\nkey\r\n$6\r\nvalue1\r\n"
+        assert (
+            processor_stub.writer.response[1].decode()
+            == "*2\r\n$3\r\nkey\r\n$6\r\nvalue1\r\n"
+        )
 
     async def test_blpop_list_timeout_exceeded(self, processor_stub):
         async def set_after_delay():
             await asyncio.sleep(0.51)
-            await processor_stub.process_command((Command.RPUSH, "key", "value1", "value2"))
+            await processor_stub.process_command(
+                (Command.RPUSH, "key", "value1", "value2")
+            )
 
         await asyncio.gather(
             processor_stub.process_command((Command.BLPOP, "key", "0.5")),
-            set_after_delay()
+            set_after_delay(),
         )
 
         assert processor_stub.writer.response[0].decode() == "*-1\r\n"
@@ -250,7 +261,9 @@ class TestProcessor:
         assert processor_stub.writer.response[4].decode() == "+list\r\n"
 
     async def test_get_type_timeout(self, processor_stub):
-        await processor_stub.process_command((Command.XADD,  "key1", "0-1", "foo", "bar", "baz", "qux"))
+        await processor_stub.process_command(
+            (Command.XADD, "key1", "0-1", "foo", "bar", "baz", "qux")
+        )
         assert processor_stub.writer.response[0].decode() == "$3\r\n0-1\r\n"
         await processor_stub.process_command((Command.TYPE, "key1"))
         assert processor_stub.writer.response[1].decode() == "+stream\r\n"
