@@ -248,3 +248,9 @@ class TestProcessor:
         await processor_stub.process_command((Command.RPUSH, "key", "value1", "value2"))
         await processor_stub.process_command((Command.TYPE, "key"))
         assert processor_stub.writer.response[4].decode() == "+list\r\n"
+
+    async def test_get_type_timeout(self, processor_stub):
+        await processor_stub.process_command((Command.XADD,  "key1", "0-1", "foo", "bar", "baz", "qux"))
+        assert processor_stub.writer.response[0].decode() == "$3\r\n0-1\r\n"
+        await processor_stub.process_command((Command.TYPE, "key1"))
+        assert processor_stub.writer.response[1].decode() == "+stream\r\n"

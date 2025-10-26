@@ -2,7 +2,7 @@ from app.storage import Value, ValueType
 
 
 class Formatter:
-    def format_echo_expression(self, argument: str) -> bytes:
+    def format_string_expression(self, argument: str) -> bytes:
         response = f"${len(argument)}\r\n{argument}\r\n"
         return response.encode("utf-8")
 

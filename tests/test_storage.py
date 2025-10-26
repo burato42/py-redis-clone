@@ -1,4 +1,5 @@
 import asyncio
+from collections import deque
 from datetime import datetime, timedelta
 
 import pytest
@@ -106,3 +107,10 @@ class TestStorage:
         assert storage.get_type("key1") == ValueType.STRING
         await storage.rpush("key2", [Value("value1"), Value("value2")])
         assert storage.get_type("key2") == ValueType.LIST
+
+    def test_stream_xadd(self, storage):
+        storage.set_stream("key1", Value({"foo": "bar", "baz": "qux"}))
+        assert storage.data.get("key1") == deque([Value({"foo": "bar", "baz": "qux"})])
+        storage.set_stream("key1", Value({"bar": "foo", "baz": "qux"}))
+        assert storage.data.get("key1") == deque(
+            [Value({"foo": "bar", "baz": "qux"}), Value({"bar": "foo", "baz": "qux"})])

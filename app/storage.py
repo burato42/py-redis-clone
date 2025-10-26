@@ -1,4 +1,5 @@
 import asyncio
+from collections import deque
 from dataclasses import dataclass
 import datetime
 from enum import Enum
@@ -62,6 +63,12 @@ class Storage:
             async with self.conditions[key]:
                 self.conditions[key].notify_all()
 
+    def set_stream(self, key, value) -> None:
+        if not key in self.data:
+            self.data[key] = deque([value])
+        else:
+            self.data[key].append(value)
+
     async def rpush(self, key: str, values: list[Value]) -> list[Value]:
         if key in self.data and isinstance(self.data[key], list):
             self.data[key].extend(values)
@@ -96,6 +103,8 @@ class Storage:
                 return ValueType.LIST
             case set():
                 return ValueType.SET
+            case deque():
+                return ValueType.STREAM
             case _:
                 return ValueType.NONE
 

@@ -50,7 +50,7 @@ class Processor:
         @self.registry.register(Command.ECHO)
         async def handle_echo(args: list[str]) -> None:
             # Command example: (Command.ECHO, "banana")
-            self.writer.write(formatter.format_echo_expression(args[0]))
+            self.writer.write(formatter.format_string_expression(args[0]))
 
         @self.registry.register(Command.SET)
         async def handle_set(args: list[str]) -> None:
@@ -155,6 +155,18 @@ class Processor:
             record_type = self.storage.get_type(record_key)
             self.writer.write(formatter.format_type_response(record_type))
 
+        @self.registry.register(Command.XADD)
+        async def handle_xadd(args: list[str]) -> None:
+            # Command example: (Command.XADD,  "key1", "0-1", "foo", "bar", "baz", "qux")
+            record_key = args[0]
+            stream_key = args[1]
+            obj = dict(id=stream_key)
+            idx = 2
+            while idx < len(args):
+                obj[args[idx]] = args[idx + 1]
+                idx += 2
+            self.storage.set_stream(record_key, Value(obj))
+            self.writer.write(formatter.format_string_expression(stream_key))
 
     async def process_command(self, command: tuple[Command, str, ...]) -> None:
         """Process a command and return the result into the writer."""

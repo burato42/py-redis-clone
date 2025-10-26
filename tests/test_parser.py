@@ -88,3 +88,7 @@ class TestParser:
     def test_type(self):
         cmd = parser.parse_command(b"*2\r\n$4\r\nTYPE\r\n$3\r\nfoo\r\n")
         assert cmd == (Command.TYPE, "foo")
+
+    def test_xadd(self):
+        cmd = parser.parse_command(b"*5\r\n$4\r\nXADD\r\n$3\r\nkey\r\n$3\r\n0-1\r\n$3\r\nfoo\r\n$3\r\nbar\r\n")
+        assert cmd == (Command.XADD, "key", "0-1", "foo", "bar")
