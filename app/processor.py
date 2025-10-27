@@ -167,8 +167,8 @@ class Processor:
                 idx += 2
 
             try:
-                self.storage.set_stream(record_key, Value(obj))
-                self.writer.write(formatter.format_string_expression(stream_key))
+                stream_id = self.storage.set_stream(record_key, Value(obj))
+                self.writer.write(formatter.format_string_expression(stream_id))
             except ValueError as err:
                 self.writer.write(formatter.format_simple_error(err))
 

@@ -61,16 +61,48 @@ class Storage:
             async with self.conditions[key]:
                 self.conditions[key].notify_all()
 
-    def set_stream(self, key: str, value: Value) -> None:
-        if len(rec_id := value.item["id"].split("-")) != 2:
-            raise ValueError("Invalid stream id")
+    def _autogenerate_and_set_stream_id(self, key: str, value: Value) -> Optional[str]:
+        rec_id = value.item["id"]
+        if rec_id == "*":
+            auto_timestmp = datetime.datetime.now(datetime.UTC).microsecond // 1000
+            auto_version = 1
+            value.item["id"] = f"{auto_timestmp}-{auto_version}"
+            time_versioned = auto_timestmp, auto_version
+        else:
+            time_versioned = rec_id.split("-")
+            if time_versioned[1] == "*" and key not in self.data:
+                value.item["id"] = f"{time_versioned[0]}-1"
 
-        timestmp, version = [int(x) for x in rec_id]
+                self.data[key] = deque([value])
+                return value.item["id"]
+            elif time_versioned[1] == "*" and key in self.data:
+                cur_timestmp = int(time_versioned[0])
+                last_timestmp, last_version = [
+                    int(x) for x in self.data[key][-1].item["id"].split("-")
+                ]
+                if cur_timestmp == last_timestmp:
+                    value.item["id"] = f"{time_versioned[0]}-{last_version + 1}"
+                    self.data[key].append(value)
+                    return value.item["id"]
+                elif cur_timestmp < last_timestmp:
+                    raise ValueError(
+                        "The ID specified in XADD is equal or smaller than the target stream top item"
+                    )
+                else:
+                    value.item["id"] = f"{cur_timestmp}-0"
+                    self.data[key].append(value)
+                    return value.item["id"]
+            return None
+
+    def _set_stream_id(self, key: str, value: Value) -> str:
+        time_versioned = value.item["id"].split("-")
+        timestmp, version = [int(x) for x in time_versioned]
         if timestmp < 0 or version < 1:
             raise ValueError("The ID specified in XADD must be greater than 0-0")
+
         if key not in self.data:
             self.data[key] = deque([value])
-            return
+            return value.item["id"]
 
         last_timestmp, last_version = [
             int(x) for x in self.data[key][-1].item["id"].split("-")
@@ -82,6 +114,19 @@ class Storage:
                 "The ID specified in XADD is equal or smaller than the target stream top item"
             )
         self.data[key].append(value)
+        return value.item["id"]
+
+    def set_stream(self, key: str, value: Value) -> str:
+        rec_id = value.item["id"]
+        # When the format "*", "0-*" or "3-1" is violated we throw and exception
+        if rec_id != "*" and len(rec_id.split("-")) != 2:
+            raise ValueError("Invalid stream id")
+
+        stream_id = self._autogenerate_and_set_stream_id(key, value)
+        if stream_id is not None:
+            return stream_id
+
+        return self._set_stream_id(key, value)
 
     async def rpush(self, key: str, values: list[Value]) -> list[Value]:
         if key in self.data and isinstance(self.data[key], list):
