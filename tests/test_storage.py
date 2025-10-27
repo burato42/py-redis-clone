@@ -102,9 +102,32 @@ class TestStorage:
         assert storage.get_type("key2") == ValueType.LIST
 
     def test_stream_xadd(self, storage):
-        storage.set_stream("key1", Value({"foo": "bar", "baz": "qux"}))
-        assert storage.data.get("key1") == deque([Value({"foo": "bar", "baz": "qux"})])
-        storage.set_stream("key1", Value({"bar": "foo", "baz": "qux"}))
+        with pytest.raises(
+            ValueError, match="The ID specified in XADD must be greater than 0-0"
+        ):
+            storage.set_stream("key1", Value({"id": "0-0", "foo": "bar", "baz": "qux"}))
+
+        storage.set_stream("key1", Value({"id": "0-1", "foo": "bar", "baz": "qux"}))
         assert storage.data.get("key1") == deque(
-            [Value({"foo": "bar", "baz": "qux"}), Value({"bar": "foo", "baz": "qux"})]
+            [Value({"id": "0-1", "foo": "bar", "baz": "qux"})]
         )
+
+        with pytest.raises(
+            ValueError,
+            match="The ID specified in XADD is equal or smaller than the target stream top item",
+        ):
+            storage.set_stream("key1", Value({"id": "0-1", "bar": "foo", "baz": "qux"}))
+
+        storage.set_stream("key1", Value({"id": "1-1", "bar": "foo", "baz": "qux"}))
+        assert storage.data.get("key1") == deque(
+            [
+                Value({"id": "0-1", "foo": "bar", "baz": "qux"}),
+                Value({"id": "1-1", "bar": "foo", "baz": "qux"}),
+            ]
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="The ID specified in XADD is equal or smaller than the target stream top item",
+        ):
+            storage.set_stream("key1", Value({"id": "0-1", "bar": "foo", "baz": "qux"}))

@@ -35,5 +35,8 @@ class Formatter:
     def format_type_response(self, record_type: ValueType) -> bytes:
         return f"+{record_type.name.lower()}\r\n".encode("utf-8")
 
+    def format_simple_error(self, error: Exception) -> bytes:
+        return f"-ERR {str(error)}\r\n".encode("utf-8")
+
 
 formatter = Formatter()

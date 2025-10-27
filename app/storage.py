@@ -62,10 +62,25 @@ class Storage:
                 self.conditions[key].notify_all()
 
     def set_stream(self, key: str, value: Value) -> None:
+        if len(rec_id := value.item["id"].split("-")) != 2:
+            raise ValueError("Invalid stream id")
+
+        timestmp, version = [int(x) for x in rec_id]
+        if timestmp < 0 or version < 1:
+            raise ValueError("The ID specified in XADD must be greater than 0-0")
         if key not in self.data:
             self.data[key] = deque([value])
             return
 
+        last_timestmp, last_version = [
+            int(x) for x in self.data[key][-1].item["id"].split("-")
+        ]
+        if timestmp < last_timestmp or (
+            timestmp == last_timestmp and version <= last_version
+        ):
+            raise ValueError(
+                "The ID specified in XADD is equal or smaller than the target stream top item"
+            )
         self.data[key].append(value)
 
     async def rpush(self, key: str, values: list[Value]) -> list[Value]:

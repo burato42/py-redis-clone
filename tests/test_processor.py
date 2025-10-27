@@ -260,10 +260,17 @@ class TestProcessor:
         await processor_stub.process_command((Command.TYPE, "key"))
         assert processor_stub.writer.response[4].decode() == "+list\r\n"
 
-    async def test_get_type_timeout(self, processor_stub):
+    async def test_xadd(self, processor_stub):
         await processor_stub.process_command(
             (Command.XADD, "key1", "0-1", "foo", "bar", "baz", "qux")
         )
         assert processor_stub.writer.response[0].decode() == "$3\r\n0-1\r\n"
         await processor_stub.process_command((Command.TYPE, "key1"))
         assert processor_stub.writer.response[1].decode() == "+stream\r\n"
+        await processor_stub.process_command(
+            (Command.XADD, "key1", "0-1", "foo", "bar", "baz", "qux")
+        )
+        assert (
+            processor_stub.writer.response[2].decode()
+            == "-ERR The ID specified in XADD is equal or smaller than the target stream top item\r\n"
+        )
