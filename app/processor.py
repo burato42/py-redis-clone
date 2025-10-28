@@ -178,9 +178,12 @@ class Processor:
             record_key = args[0]
 
             start, end = args[1], args[2]
-            start_params = tuple([int(x) for x in start.split("-")])
-            if len(start_params) == 1:
-                start_params = start_params[0], 0
+            if start == "-":
+                start_params = 0, 1
+            else:
+                start_params = tuple([int(x) for x in start.split("-")])
+                if len(start_params) == 1:
+                    start_params = start_params[0], 0
 
             end_params = tuple([int(x) for x in end.split("-")])
             if len(end_params) == 1:

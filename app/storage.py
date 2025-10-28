@@ -205,7 +205,7 @@ class Storage:
                     and timestamp == end[0]
                     and end[1] >= version >= start[1]
                 )
-                or (timestamp == start[0] and version >= start[1])
+                or (timestamp == start[0] and timestamp != end[0] and version >= start[1])
                 or (timestamp != start[0] and timestamp == end[0] and version <= end[1])
             ):
                 res.append(value)

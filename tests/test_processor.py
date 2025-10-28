@@ -358,3 +358,22 @@ class TestProcessor:
             processor_stub.writer.response[4].decode()
             == "*3\r\n*2\r\n$3\r\n0-1\r\n*2\r\n$5\r\ngrape\r\n$9\r\nraspberry\r\n*2\r\n$3\r\n0-2\r\n*2\r\n$9\r\nblueberry\r\n$6\r\nbanana\r\n*2\r\n$3\r\n0-3\r\n*2\r\n$6\r\norange\r\n$9\r\nraspberry\r\n"
         )
+
+    async def test_xrange_query_minus(self, processor_stub):
+        await processor_stub.process_command(
+            (Command.XADD, "banana", "0-1", "grape", "raspberry")
+        )
+        await processor_stub.process_command(
+            (Command.XADD, "banana", "0-2", "blueberry", "banana")
+        )
+        await processor_stub.process_command(
+            (Command.XADD, "banana", "0-3", "orange", "raspberry")
+        )
+        await processor_stub.process_command(
+            (Command.XADD, "banana", "0-4", "orange", "raspberry")
+        )
+        await processor_stub.process_command((Command.XRANGE, "banana", "-", "0-2"))
+        assert (
+            processor_stub.writer.response[4].decode()
+            == "*2\r\n*2\r\n$3\r\n0-1\r\n*2\r\n$5\r\ngrape\r\n$9\r\nraspberry\r\n*2\r\n$3\r\n0-2\r\n*2\r\n$9\r\nblueberry\r\n$6\r\nbanana\r\n"
+        )
