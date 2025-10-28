@@ -180,14 +180,14 @@ class Processor:
             start, end = args[1], args[2]
             if start == "-":
                 start_params = 0, 1
-            else:
-                start_params = tuple([int(x) for x in start.split("-")])
-                if len(start_params) == 1:
-                    start_params = start_params[0], 0
+            elif len(start_params := tuple([int(x) for x in start.split("-")])) == 1:
+                start_params = start_params[0], 0
 
-            end_params = tuple([int(x) for x in end.split("-")])
-            if len(end_params) == 1:
+            if end == "+":
+                end_params = float("inf"), float("inf")
+            elif len(end_params := tuple([int(x) for x in end.split("-")])) == 1:
                 end_params = end_params[0], float("inf")
+
             records = self.storage.get_stream_range(
                 record_key, start_params, end_params
             )
