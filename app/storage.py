@@ -137,6 +137,7 @@ class Storage:
         return value.item["id"]
 
     def set_stream(self, key: str, value: Value) -> str:
+        # TODO keep content not in dict, but in dataclass
         rec_id = value.item["id"]
         # When the format "*", "0-*" or "3-1" is violated we throw and exception
         if rec_id != "*" and len(rec_id.split("-")) != 2:
@@ -186,6 +187,29 @@ class Storage:
                 return ValueType.STREAM
             case _:
                 return ValueType.NONE
+
+    def get_stream_range(
+        self, key: str, start: tuple[int, int], end: tuple[int, int | float]
+    ):
+        if key not in self.data:
+            return []
+
+        res = []
+        # TODO use binary search as this sequence is sorted by the timestamp
+        for value in self.data[key]:
+            timestamp, version = list(map(int, value.item["id"].split("-")))
+            if (
+                (end[0] > timestamp > start[0])
+                or (
+                    timestamp == start[0]
+                    and timestamp == end[0]
+                    and end[1] >= version >= start[1]
+                )
+                or (timestamp == start[0] and version >= start[1])
+                or (timestamp != start[0] and timestamp == end[0] and version <= end[1])
+            ):
+                res.append(value)
+        return res
 
 
 storage = Storage()

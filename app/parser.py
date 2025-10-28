@@ -14,6 +14,7 @@ class Command(Enum):
     BLPOP = 10
     TYPE = 11
     XADD = 12
+    XRANGE = 13
 
 
 class Parser:
@@ -30,6 +31,7 @@ class Parser:
         "BLPOP": Command.BLPOP,
         "TYPE": Command.TYPE,
         "XADD": Command.XADD,
+        "XRANGE": Command.XRANGE,
     }
 
     def parse_command(self, payload: bytes) -> tuple[Command, *tuple[str, ...]]:

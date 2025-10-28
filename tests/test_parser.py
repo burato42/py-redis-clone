@@ -106,3 +106,9 @@ class TestParser:
             b"*5\r\n$4\r\nXADD\r\n$5\r\ngrape\r\n$1\r\n*\r\n$10\r\nstrawberry\r\n$5\r\nmango\r\n"
         )
         assert cmd == (Command.XADD, "grape", "*", "strawberry", "mango")
+
+    def test_xrange(self):
+        cmd = parser.parse_command(
+            b"*4\r\n$6\r\nXRANGE\r\n$6\r\norange\r\n$3\r\n0-2\r\n$3\r\n0-3\r\n"
+        )
+        assert cmd == (Command.XRANGE, "orange", "0-2", "0-3")

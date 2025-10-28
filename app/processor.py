@@ -172,6 +172,24 @@ class Processor:
             except ValueError as err:
                 self.writer.write(formatter.format_simple_error(err))
 
+        @self.registry.register(Command.XRANGE)
+        async def handle_xrange(args: list[str]) -> None:
+            # Command example:(Command.XRANGE, "some_key", "1526985054069-0", "1526985054079")
+            record_key = args[0]
+
+            start, end = args[1], args[2]
+            start_params = tuple([int(x) for x in start.split("-")])
+            if len(start_params) == 1:
+                start_params = start_params[0], 0
+
+            end_params = tuple([int(x) for x in end.split("-")])
+            if len(end_params) == 1:
+                end_params = end_params[0], float("inf")
+            records = self.storage.get_stream_range(
+                record_key, start_params, end_params
+            )
+            self.writer.write(formatter.format_xrange_response(records))
+
     async def process_command(self, command: tuple[Command, *tuple[str]]) -> None:
         """Process a command and return the result into the writer."""
         if not command:

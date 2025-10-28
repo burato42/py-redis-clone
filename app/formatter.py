@@ -38,5 +38,20 @@ class Formatter:
     def format_simple_error(self, error: Exception) -> bytes:
         return f"-ERR {str(error)}\r\n".encode("utf-8")
 
+    def format_xrange_response(self, values: Optional[list[Value]]) -> bytes:
+        if not values:
+            return b"*0\r\n"
+        items = ""
+        for value in values:
+            fields = ""
+            for k, v in value.item.items():
+                if k == "id":
+                    continue
+                fields += f"${len(k)}\r\n{k}\r\n${len(v)}\r\n{v}\r\n"
+
+            items += f"*2\r\n${len(value.item['id'])}\r\n{value.item['id']}\r\n*{(len(value.item) - 1) * 2}\r\n{fields}"
+
+        return f"*{len(values)}\r\n{items}".encode("utf-8")
+
 
 formatter = Formatter()
