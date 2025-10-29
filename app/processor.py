@@ -178,12 +178,7 @@ class Processor:
             record_key = args[0]
 
             start, end = args[1], args[2]
-            if start == "-":
-                start_params = 0, 1
-            elif len(start_input := tuple([int(x) for x in start.split("-")])) == 1:
-                start_params = start_input[0], 0
-            else:
-                start_params = start_input[0], start_input[1]
+            start_params = ProcessingUtils.prepare_start_params(start)
 
             if end == "+":
                 end_params = float("inf"), float("inf")
@@ -212,14 +207,7 @@ class Processor:
             id_parameters = parameters[parameter_size // 2 :]
 
             for record_key, start in zip(key_parameters, id_parameters):
-                if start == "-":
-                    start_params = 0, 1
-                elif (
-                    len(start_input := tuple([int(x) for x in start.split("-")])) == 1
-                ):
-                    start_params = start_input[0], 0
-                else:
-                    start_params = start_input[0], start_input[1]
+                start_params = ProcessingUtils.prepare_start_params(start)
 
                 end_params = float("inf"), float("inf")
                 records = self.storage.get_stream_range(
