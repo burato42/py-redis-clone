@@ -53,5 +53,24 @@ class Formatter:
 
         return f"*{len(values)}\r\n{items}".encode("utf-8")
 
+    def format_xread_response(self, key: str, values: Optional[list[Value]]) -> bytes:
+        # TODO The functionality of format_xrange_response and format_xread_response almost identical
+        # Will be fixed as there might be more requirements for the format_xread_response
+        if not values:
+            return b"*0\r\n"
+        items = ""
+        for value in values:
+            fields = ""
+            for k, v in value.item.items():
+                if k == "id":
+                    continue
+                fields += f"${len(k)}\r\n{k}\r\n${len(v)}\r\n{v}\r\n"
+
+            items += f"*2\r\n${len(value.item['id'])}\r\n{value.item['id']}\r\n*{(len(value.item) - 1) * 2}\r\n{fields}"
+
+        return f"*1\r\n*2\r\n${len(key)}\r\n{key}\r\n*{len(values)}\r\n{items}".encode(
+            "utf-8"
+        )
+
 
 formatter = Formatter()

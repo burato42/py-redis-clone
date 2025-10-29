@@ -112,3 +112,9 @@ class TestParser:
             b"*4\r\n$6\r\nXRANGE\r\n$6\r\norange\r\n$3\r\n0-2\r\n$3\r\n0-3\r\n"
         )
         assert cmd == (Command.XRANGE, "orange", "0-2", "0-3")
+
+    def test_xread(self):
+        cmd = parser.parse_command(
+            b"*4\r\n$5\r\nXREAD\r\n$7\r\nSTREAMS\r\n$6\r\norange\r\n$3\r\n0-2\r\n"
+        )
+        assert cmd == (Command.XREAD, "STREAMS", "orange", "0-2")

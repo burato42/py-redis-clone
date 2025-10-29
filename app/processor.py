@@ -193,6 +193,22 @@ class Processor:
             )
             self.writer.write(formatter.format_xrange_response(records))
 
+        @self.registry.register(Command.XREAD)
+        async def handle_xread(args: list[str]) -> None:
+            # Command example:(Command.XREAD, "STREAMS", "some_key", "1526985054069-0")
+            record_key = args[1]
+            start = args[2]
+            if start == "-":
+                start_params = 0, 1
+            elif len(start_params := tuple([int(x) for x in start.split("-")])) == 1:
+                start_params = start_params[0], 0
+
+            end_params = float("inf"), float("inf")
+            records = self.storage.get_stream_range(
+                record_key, start_params, end_params
+            )
+            self.writer.write(formatter.format_xread_response(record_key, records))
+
     async def process_command(self, command: tuple[Command, *tuple[str]]) -> None:
         """Process a command and return the result into the writer."""
         if not command:
