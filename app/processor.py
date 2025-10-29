@@ -180,13 +180,17 @@ class Processor:
             start, end = args[1], args[2]
             if start == "-":
                 start_params = 0, 1
-            elif len(start_params := tuple([int(x) for x in start.split("-")])) == 1:
-                start_params = start_params[0], 0
+            elif len(start_input := tuple([int(x) for x in start.split("-")])) == 1:
+                start_params = start_input[0], 0
+            else:
+                start_params = start_input[0], start_input[1]
 
             if end == "+":
                 end_params = float("inf"), float("inf")
-            elif len(end_params := tuple([int(x) for x in end.split("-")])) == 1:
-                end_params = end_params[0], float("inf")
+            elif len(end_input := tuple([int(x) for x in end.split("-")])) == 1:
+                end_params = end_input[0], float("inf")
+            else:
+                end_params = end_input[0], end_input[1]
 
             records = self.storage.get_stream_range(
                 record_key, start_params, end_params
@@ -196,18 +200,34 @@ class Processor:
         @self.registry.register(Command.XREAD)
         async def handle_xread(args: list[str]) -> None:
             # Command example:(Command.XREAD, "STREAMS", "some_key", "1526985054069-0")
-            record_key = args[1]
-            start = args[2]
-            if start == "-":
-                start_params = 0, 1
-            elif len(start_params := tuple([int(x) for x in start.split("-")])) == 1:
-                start_params = start_params[0], 0
+            record_list: list[
+                tuple[str, list[Value]]
+            ] = []  # list containing the stream key and list of values for every key
+            parameters = args[1:]
+            parameter_size = len(parameters)
+            if parameter_size % 2 != 0:
+                raise RuntimeError("Incorrect number of parameters")
 
-            end_params = float("inf"), float("inf")
-            records = self.storage.get_stream_range(
-                record_key, start_params, end_params
-            )
-            self.writer.write(formatter.format_xread_response(record_key, records))
+            key_parameters = parameters[: parameter_size // 2]
+            id_parameters = parameters[parameter_size // 2 :]
+
+            for record_key, start in zip(key_parameters, id_parameters):
+                if start == "-":
+                    start_params = 0, 1
+                elif (
+                    len(start_input := tuple([int(x) for x in start.split("-")])) == 1
+                ):
+                    start_params = start_input[0], 0
+                else:
+                    start_params = start_input[0], start_input[1]
+
+                end_params = float("inf"), float("inf")
+                records = self.storage.get_stream_range(
+                    record_key, start_params, end_params
+                )
+                record_list.append((record_key, records))
+
+            self.writer.write(formatter.format_xread_response(record_list))
 
     async def process_command(self, command: tuple[Command, *tuple[str]]) -> None:
         """Process a command and return the result into the writer."""
@@ -240,3 +260,18 @@ class Processor:
         if not values:
             raise RuntimeError(f"No values for {record_key}")
         self.writer.write(formatter.format_len_response(values))
+
+
+class ProcessingUtils:
+
+    @staticmethod
+    def prepare_start_params(start: str) -> tuple[int, int]:
+        if start == "-":
+            start_params = 0, 1
+        elif (
+                len(start_input := tuple([int(x) for x in start.split("-")])) == 1
+        ):
+            start_params = start_input[0], 0
+        else:
+            start_params = start_input[0], start_input[1]
+        return start_params

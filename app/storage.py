@@ -190,7 +190,7 @@ class Storage:
 
     def get_stream_range(
         self, key: str, start: tuple[int, int], end: tuple[int | float, int | float]
-    ):
+    ) -> list[Value]:
         if key not in self.data:
             return []
 
