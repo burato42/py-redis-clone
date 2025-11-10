@@ -59,7 +59,8 @@ class Formatter:
         # TODO The functionality of format_xrange_response and format_xread_response almost identical
         # Will be fixed as there might be more requirements for the format_xread_response
         if not record_list:
-            return b"*0\r\n"
+            return b"*-1\r\n"
+
         streams = ""
         for record_key, values in record_list:
             items = ""

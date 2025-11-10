@@ -13,6 +13,10 @@ class Push(Enum):
     LEFT = 2
 
 
+class StreamParams(Enum):
+    BLOCK = 1
+
+
 class CommandHandlerRegistry:
     """Registry for command handlers"""
 
@@ -167,7 +171,7 @@ class Processor:
                 idx += 2
 
             try:
-                stream_id = self.storage.set_stream(record_key, Value(obj))
+                stream_id = await self.storage.set_stream(record_key, Value(obj))
                 self.writer.write(formatter.format_string_expression(stream_id))
             except ValueError as err:
                 self.writer.write(formatter.format_simple_error(err))
@@ -187,8 +191,8 @@ class Processor:
             else:
                 end_params = end_input[0], end_input[1]
 
-            records = self.storage.get_stream_range(
-                record_key, start_params, end_params
+            records = await self.storage.get_stream_range(
+                record_key, start_params, end_params, is_inclusive=True
             )
             self.writer.write(formatter.format_xrange_response(records))
 
@@ -198,8 +202,16 @@ class Processor:
             record_list: list[
                 tuple[str, list[Value]]
             ] = []  # list containing the stream key and list of values for every key
-            parameters = args[1:]
+
+            blocking_period = None # milliseconds, if None then non-blocking
+            if args[0].upper() == StreamParams.BLOCK.name:
+                blocking_period = int(args[1])
+                parameters = args[3:]
+            else:
+                parameters = args[1:]
+
             parameter_size = len(parameters)
+
             if parameter_size % 2 != 0:
                 raise RuntimeError("Incorrect number of parameters")
 
@@ -210,10 +222,11 @@ class Processor:
                 start_params = ProcessingUtils.prepare_start_params(start)
 
                 end_params = float("inf"), float("inf")
-                records = self.storage.get_stream_range(
-                    record_key, start_params, end_params
+                records = await self.storage.get_stream_range(
+                    record_key, start_params, end_params, is_inclusive=False, blocking_period=blocking_period
                 )
-                record_list.append((record_key, records))
+                if records:
+                    record_list.append((record_key, records))
 
             self.writer.write(formatter.format_xread_response(record_list))
 

@@ -118,3 +118,9 @@ class TestParser:
             b"*4\r\n$5\r\nXREAD\r\n$7\r\nSTREAMS\r\n$6\r\norange\r\n$3\r\n0-2\r\n"
         )
         assert cmd == (Command.XREAD, "STREAMS", "orange", "0-2")
+
+    def test_xread_blocking(self):
+        cmd = parser.parse_command(
+            b"*6\r\n$5\r\nXREAD\r\n$5\r\nBLOCK\r\n$4\r\n1000\r\n$7\r\nSTREAMS\r\n$6\r\norange\r\n$3\r\n0-2\r\n"
+        )
+        assert cmd == (Command.XREAD, "BLOCK", "1000", "STREAMS", "orange", "0-2")
