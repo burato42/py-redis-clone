@@ -29,7 +29,7 @@ class Storage:
     def __init__(self):
         self.data: dict[Any, Any] = {}
         self.conditions: dict[Any, asyncio.Condition] = {}
-        # self.stream_conditions: dict[Any, asyncio.Condition] = {}
+        self.stream_conditions: dict[Any, asyncio.Condition] = {}
 
     def get(self, key: str) -> Any:
         if (
@@ -64,7 +64,9 @@ class Storage:
             async with self.conditions[key]:
                 self.conditions[key].notify_all()
 
-    def _autogenerate_and_set_stream_id(self, key: str, value: Value) -> Optional[str]:
+    async def _autogenerate_and_set_stream_id(
+        self, key: str, value: Value
+    ) -> Optional[str]:
         rec_id = value.item["id"]
         if rec_id == "*":
             # This branch is for full id generation
@@ -117,7 +119,7 @@ class Storage:
                     return value.item["id"]
             return None
 
-    def _set_stream_id(self, key: str, value: Value) -> str:
+    async def _set_stream_id(self, key: str, value: Value) -> str:
         time_versioned = value.item["id"].split("-")
         timestmp, version = [int(x) for x in time_versioned]
         if timestmp < 0 or version < 1:
@@ -146,15 +148,15 @@ class Storage:
         if rec_id != "*" and len(rec_id.split("-")) != 2:
             raise ValueError("Invalid stream id")
 
-        stream_id = self._autogenerate_and_set_stream_id(key, value)
-        if stream_id is not None:
-            return stream_id
+        stream_id = await self._autogenerate_and_set_stream_id(key, value)
+        if stream_id is None:
+            stream_id = await self._set_stream_id(key, value)
 
-        # if key in self.stream_conditions:
-        #     async with self.stream_conditions[key]:
-        #         self.stream_conditions[key].notify_all()
+        if key in self.stream_conditions:
+            async with self.stream_conditions[key]:
+                self.stream_conditions[key].notify_all()
 
-        return self._set_stream_id(key, value)
+        return stream_id
 
     async def rpush(self, key: str, values: list[Value]) -> list[Value]:
         if key in self.data and isinstance(self.data[key], list):
@@ -196,42 +198,76 @@ class Storage:
                 return ValueType.NONE
 
     async def get_stream_range(
-            self,
-            key: str,
-            start: tuple[int, int],
-            end: tuple[int | float, int | float],
-            is_inclusive: bool = True,
-            blocking_period: Optional[int] = None
+        self,
+        key: str,
+        start: tuple[int, int],
+        end: tuple[int | float, int | float],
+        is_inclusive: bool = True,
+        blocking_period: Optional[int] = None,
     ) -> list[Value]:
+        res = []
+        if blocking_period == 0:
+            if key not in self.stream_conditions:
+                self.stream_conditions[key] = asyncio.Condition()
 
-        if blocking_period is not None:
-            await asyncio.sleep(blocking_period / 1000) # Converting milliseconds to seconds
+            async with self.stream_conditions[key]:
+                await asyncio.wait_for(
+                    self.stream_conditions[key].wait_for(
+                        lambda: key in self.data
+                        and self._populate_range(
+                            self.data[key], start, end, is_inclusive=is_inclusive
+                        )
+                        != []
+                    ),
+                    None,
+                )
+            res = self._populate_range(
+                self.data[key], start, end, is_inclusive=is_inclusive
+            )
+        elif blocking_period is not None:
+            await asyncio.sleep(
+                blocking_period / 1000
+            )  # Converting milliseconds to seconds
 
         if key not in self.data:
-            return []
+            return res
+        else:
+            res = self._populate_range(
+                self.data[key], start, end, is_inclusive=is_inclusive
+            )
 
-        return self._populate_range(self.data[key], start, end, is_inclusive=is_inclusive)
+        return res
 
     # TODO Refactor with the stream and KV-storage separation
-    def _populate_range(self, stream: deque[Value], start: tuple[int, int], end: tuple[int | float, int], is_inclusive: bool) -> list[Value]:
+    def _populate_range(
+        self,
+        stream: deque[Value],
+        start: tuple[int, int],
+        end: tuple[int | float, int],
+        is_inclusive: bool,
+    ) -> list[Value]:
         res = []
         if is_inclusive:
             # TODO use binary search as this sequence is sorted by the timestamp
             for value in stream:
                 timestamp, version = list(map(int, value.item["id"].split("-")))
                 if (
-                        (end[0] > timestamp > start[0])
-                        or (
+                    (end[0] > timestamp > start[0])
+                    or (
                         timestamp == start[0]
                         and timestamp == end[0]
                         and end[1] >= version >= start[1]
-                )
-                        or (
+                    )
+                    or (
                         timestamp == start[0]
                         and timestamp != end[0]
                         and version >= start[1]
-                )
-                        or (timestamp != start[0] and timestamp == end[0] and version <= end[1])
+                    )
+                    or (
+                        timestamp != start[0]
+                        and timestamp == end[0]
+                        and version <= end[1]
+                    )
                 ):
                     res.append(value)
         else:
@@ -239,23 +275,26 @@ class Storage:
             for value in stream:
                 timestamp, version = list(map(int, value.item["id"].split("-")))
                 if (
-                        (end[0] > timestamp > start[0])
-                        or (
+                    (end[0] > timestamp > start[0])
+                    or (
                         timestamp == start[0]
                         and timestamp == end[0]
                         and end[1] > version > start[1]
-                )
-                        or (
+                    )
+                    or (
                         timestamp == start[0]
                         and timestamp != end[0]
                         and version > start[1]
-                )
-                        or (timestamp != start[0] and timestamp == end[0] and version < end[1])
+                    )
+                    or (
+                        timestamp != start[0]
+                        and timestamp == end[0]
+                        and version < end[1]
+                    )
                 ):
                     res.append(value)
 
         return res
-
 
 
 storage = Storage()

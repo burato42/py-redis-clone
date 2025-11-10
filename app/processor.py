@@ -203,7 +203,7 @@ class Processor:
                 tuple[str, list[Value]]
             ] = []  # list containing the stream key and list of values for every key
 
-            blocking_period = None # milliseconds, if None then non-blocking
+            blocking_period = None  # milliseconds, if None then non-blocking
             if args[0].upper() == StreamParams.BLOCK.name:
                 blocking_period = int(args[1])
                 parameters = args[3:]
@@ -223,7 +223,11 @@ class Processor:
 
                 end_params = float("inf"), float("inf")
                 records = await self.storage.get_stream_range(
-                    record_key, start_params, end_params, is_inclusive=False, blocking_period=blocking_period
+                    record_key,
+                    start_params,
+                    end_params,
+                    is_inclusive=False,
+                    blocking_period=blocking_period,
                 )
                 if records:
                     record_list.append((record_key, records))
@@ -264,14 +268,11 @@ class Processor:
 
 
 class ProcessingUtils:
-
     @staticmethod
     def prepare_start_params(start: str) -> tuple[int, int]:
         if start == "-":
             start_params = 0, 1
-        elif (
-                len(start_input := tuple([int(x) for x in start.split("-")])) == 1
-        ):
+        elif len(start_input := tuple([int(x) for x in start.split("-")])) == 1:
             start_params = start_input[0], 0
         else:
             start_params = start_input[0], start_input[1]

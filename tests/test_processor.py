@@ -462,11 +462,16 @@ class TestProcessor:
             )
 
         await asyncio.gather(
-            processor_stub.process_command((Command.XREAD, "block", "500", "STREAM", "banana", "0-1")),
+            processor_stub.process_command(
+                (Command.XREAD, "block", "500", "STREAM", "banana", "0-1")
+            ),
             set_after_delay(),
         )
 
-        assert processor_stub.writer.response[4].decode() == "*1\r\n*2\r\n$6\r\nbanana\r\n*3\r\n*2\r\n$3\r\n0-2\r\n*2\r\n$9\r\nblueberry\r\n$6\r\nbanana\r\n*2\r\n$3\r\n0-3\r\n*2\r\n$6\r\norange\r\n$9\r\nraspberry\r\n*2\r\n$3\r\n0-4\r\n*2\r\n$6\r\norange\r\n$9\r\nraspberry\r\n"
+        assert (
+            processor_stub.writer.response[4].decode()
+            == "*1\r\n*2\r\n$6\r\nbanana\r\n*3\r\n*2\r\n$3\r\n0-2\r\n*2\r\n$9\r\nblueberry\r\n$6\r\nbanana\r\n*2\r\n$3\r\n0-3\r\n*2\r\n$6\r\norange\r\n$9\r\nraspberry\r\n*2\r\n$3\r\n0-4\r\n*2\r\n$6\r\norange\r\n$9\r\nraspberry\r\n"
+        )
 
     async def test_xread_query_blocking_timeout(self, processor_stub):
         async def set_after_delay():
@@ -485,7 +490,9 @@ class TestProcessor:
             )
 
         await asyncio.gather(
-            processor_stub.process_command((Command.XREAD, "block", "300", "STREAM", "banana", "0-1")),
+            processor_stub.process_command(
+                (Command.XREAD, "block", "300", "STREAM", "banana", "0-1")
+            ),
             set_after_delay(),
         )
 
