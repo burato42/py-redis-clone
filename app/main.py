@@ -2,7 +2,7 @@ import asyncio
 
 from app.parser import parser
 from app.processor import Processor
-from app.storage import storage
+from app.storage.storage_facade import storage
 
 
 async def handle_client(reader, writer):

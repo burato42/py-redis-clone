@@ -1,4 +1,4 @@
-from typing import Optional, Any
+from typing import Optional, Union
 
 from app.storage.list_storage import ListStorage
 from app.storage.stream_storage import StreamStorage
@@ -23,7 +23,7 @@ class Storage:
 
         return ValueType.NONE
 
-    def get(self, key: str) -> Optional[Value]:
+    def get(self, key: str) -> Optional[Value] | Optional[list[Value]]:
         data_type = self.get_type(key)
         if data_type == ValueType.STRING:
             return self.string_storage.get(key)
@@ -39,9 +39,9 @@ class Storage:
         await self.string_storage.set(key, value)
 
     async def get_blocking(
-        self, key: str, timeout: Optional[int] = None
+        self, key: str, timeout: Optional[float | int] = None
     ) -> Optional[Value]:
-        if (data_type := self.get_type(key)) not in (ValueType.NONE, ValueType.LIST):
+        if self.get_type(key) not in (ValueType.NONE, ValueType.LIST):
             raise KeyError("Blocking get operations is available for LIST only")
         return await self.list_storage.get_blocking(key, timeout)
 

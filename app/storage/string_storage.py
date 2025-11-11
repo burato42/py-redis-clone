@@ -9,12 +9,10 @@ class StringStorage:
         self.data: dict[str, Value] = {}
 
     def get(self, key: str) -> Optional[Value]:
-        if (
-            key in self.data
-            and self.data[key].expire
-            and self.data[key].expire <= datetime.datetime.now()
-        ):
-            return None
+        if key in self.data:
+            expire = self.data[key].expire
+            if expire is not None and expire <= datetime.datetime.now():
+                return None
         return self.data.get(key)
 
     async def set(self, key: str, value: Value) -> None:

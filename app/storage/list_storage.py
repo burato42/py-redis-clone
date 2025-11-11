@@ -9,7 +9,7 @@ class ListStorage:
         self.data: dict[str, list[Value]] = {}
         self.conditions: dict[str, asyncio.Condition] = {}
 
-    def get(self, key: str) -> Optional[Value]:
+    def get(self, key: str) -> Optional[list[Value]]:
         return self.data.get(key)
 
     async def get_blocking(self, key: str, timeout=None):

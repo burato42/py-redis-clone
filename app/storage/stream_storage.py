@@ -42,15 +42,18 @@ class StreamStorage:
             if key not in self.conditions:
                 self.conditions[key] = asyncio.Condition()
 
+            def _data_available() -> bool:
+                return (
+                    key in self.data
+                    and self._create_range(
+                        self.data[key], start, end, is_inclusive=is_inclusive
+                    )
+                    != []
+                )
+
             async with self.conditions[key]:
                 await asyncio.wait_for(
-                    self.conditions[key].wait_for(
-                        lambda: key in self.data
-                        and self._create_range(
-                            self.data[key], start, end, is_inclusive=is_inclusive
-                        )
-                        != []
-                    ),
+                    self.conditions[key].wait_for(_data_available),
                     None,
                 )
             res = self._create_range(
@@ -152,7 +155,7 @@ class StreamStorage:
         self,
         stream: deque[Value],
         start: tuple[int, int],
-        end: tuple[int | float, int],
+        end: tuple[int | float, int | float],
         is_inclusive: bool,
     ) -> list[Value]:
         res = []
