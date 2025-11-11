@@ -497,3 +497,59 @@ class TestProcessor:
         )
 
         assert processor_stub.writer.response[0].decode() == "*-1\r\n"
+
+    async def test_xread_query_blocking_with_starting_id_empty(self, processor_stub):
+        async def set_after_delay():
+            await asyncio.sleep(0.01)
+            await processor_stub.process_command(
+                (Command.XADD, "banana", "0-1", "grape", "raspberry")
+            )
+            await processor_stub.process_command(
+                (Command.XADD, "banana", "0-2", "blueberry", "banana")
+            )
+
+        await asyncio.gather(
+            processor_stub.process_command(
+                (Command.XREAD, "block", "500", "STREAM", "banana", "$")
+            ),
+            set_after_delay(),
+        )
+
+        assert processor_stub.writer.response[0].decode() == "$3\r\n0-1\r\n"
+        assert processor_stub.writer.response[1].decode() == "$3\r\n0-2\r\n"
+        assert (
+            processor_stub.writer.response[2].decode()
+            == "*1\r\n*2\r\n$6\r\nbanana\r\n*2\r\n*2\r\n$3\r\n0-1\r\n*2\r\n$5\r\ngrape\r\n$9\r\nraspberry\r\n*2\r\n$3\r\n0-2\r\n*2\r\n$9\r\nblueberry\r\n$6\r\nbanana\r\n"
+        )
+
+    async def test_xread_query_blocking_with_starting_id_existing(self, processor_stub):
+        await processor_stub.process_command(
+            (Command.XADD, "banana", "0-1", "grape", "raspberry")
+        )
+        await processor_stub.process_command(
+            (Command.XADD, "banana", "0-2", "blueberry", "banana")
+        )
+        async def set_after_delay():
+            await asyncio.sleep(0.01)
+            await processor_stub.process_command(
+                (Command.XADD, "banana", "0-3", "orange", "raspberry")
+            )
+            await processor_stub.process_command(
+                (Command.XADD, "banana", "0-4", "orange", "raspberry")
+            )
+
+        await asyncio.gather(
+            processor_stub.process_command(
+                (Command.XREAD, "block", "500", "STREAM", "banana", "$")
+            ),
+            set_after_delay(),
+        )
+
+        assert processor_stub.writer.response[0].decode() == "$3\r\n0-1\r\n"
+        assert processor_stub.writer.response[1].decode() == "$3\r\n0-2\r\n"
+        assert processor_stub.writer.response[2].decode() == "$3\r\n0-3\r\n"
+        assert processor_stub.writer.response[3].decode() == "$3\r\n0-4\r\n"
+        assert (
+            processor_stub.writer.response[4].decode()
+            == "*1\r\n*2\r\n$6\r\nbanana\r\n*2\r\n*2\r\n$3\r\n0-3\r\n*2\r\n$6\r\norange\r\n$9\r\nraspberry\r\n*2\r\n$3\r\n0-4\r\n*2\r\n$6\r\norange\r\n$9\r\nraspberry\r\n"
+        )

@@ -219,7 +219,13 @@ class Processor:
             id_parameters = parameters[parameter_size // 2 :]
 
             for record_key, start in zip(key_parameters, id_parameters):
-                start_params = ProcessingUtils.prepare_start_params(start)
+                if start == "$" and self.storage.data.get(record_key) is None:
+                    start_params = 0, 0
+                elif start == "$" and self.storage.data.get(record_key):
+                    start_params = ProcessingUtils.prepare_start_params(
+                        self.storage.data.get(record_key)[-1].item["id"])
+                else:
+                    start_params = ProcessingUtils.prepare_start_params(start)
 
                 end_params = float("inf"), float("inf")
                 records = await self.storage.get_stream_range(
