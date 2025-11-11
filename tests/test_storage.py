@@ -5,7 +5,7 @@ import datetime
 
 import pytest
 
-from app.storage import Storage, Value, ValueType
+from app.storage.storage_facade import Storage, Value, ValueType
 
 
 @pytest.fixture(scope="function")
@@ -15,7 +15,9 @@ def storage():
 
 class TestStorage:
     def test_init(self, storage):
-        assert storage.data == {}
+        assert storage.string_storage.data == {}
+        assert storage.stream_storage.data == {}
+        assert storage.list_storage.data == {}
 
     @pytest.mark.asyncio
     async def test_set(self, storage):
@@ -38,7 +40,8 @@ class TestStorage:
     async def test_rpush(self, storage):
         await storage.set("key1", Value("value1"))
         with pytest.raises(
-            RuntimeError, match="Key key1 already exists and it's not a list"
+            KeyError,
+            match="Key key1 is already used for another data type: ValueType.STRING",
         ):
             await storage.rpush("key1", [Value("value2")])
         await storage.rpush("key2", [Value("value1")])
@@ -50,7 +53,8 @@ class TestStorage:
     async def test_lpush(self, storage):
         await storage.set("key1", Value("value1"))
         with pytest.raises(
-            RuntimeError, match="Key key1 already exists and it's not a list"
+            KeyError,
+            match="Key key1 is already used for another data type: ValueType.STRING",
         ):
             await storage.lpush("key1", [Value("value2")])
         await storage.lpush("key2", [Value("value1")])
@@ -60,36 +64,36 @@ class TestStorage:
 
     @pytest.mark.asyncio
     async def test_get_blocking(self, storage):
-        await storage.set("key1", Value("value1"))
-        assert await storage.get_blocking("key1") == Value("value1")
+        await storage.rpush("key1", [Value("value1")])
+        assert await storage.get_blocking("key1") == [Value("value1")]
 
     @pytest.mark.asyncio
     async def test_get_blocking_wait(self, storage):
         async def set_after_delay():
             await asyncio.sleep(0.01)  # Small delay
-            await storage.set("key1", Value("value1"))
+            await storage.rpush("key1", [Value("value1")])
 
         value, _ = await asyncio.gather(storage.get_blocking("key1"), set_after_delay())
 
-        assert value == Value("value1")
+        assert value == [Value("value1")]
 
     @pytest.mark.asyncio
     async def test_get_blocking_timeout(self, storage):
         async def set_after_delay():
             await asyncio.sleep(0.01)  # Small delay
-            await storage.set("key1", Value("value1"))
+            await storage.rpush("key1", [Value("value1")])
 
         value, _ = await asyncio.gather(
             storage.get_blocking("key1", 1), set_after_delay()
         )
 
-        assert value == Value("value1")
+        assert value == [Value("value1")]
 
     @pytest.mark.asyncio
     async def test_get_blocking_timeout_exceeded(self, storage):
         async def set_after_delay():
             await asyncio.sleep(1.01)
-            await storage.set("key1", Value("value1"))
+            await storage.rpush("key1", [Value("value1")])
 
         with pytest.raises(asyncio.TimeoutError):
             await asyncio.gather(storage.get_blocking("key1", 1), set_after_delay())
@@ -114,7 +118,7 @@ class TestStorage:
         await storage.set_stream(
             "key1", Value({"id": "0-1", "foo": "bar", "baz": "qux"})
         )
-        assert storage.data.get("key1") == deque(
+        assert storage.stream_storage.data.get("key1") == deque(
             [Value({"id": "0-1", "foo": "bar", "baz": "qux"})]
         )
 
@@ -129,7 +133,7 @@ class TestStorage:
         await storage.set_stream(
             "key1", Value({"id": "1-1", "bar": "foo", "baz": "qux"})
         )
-        assert storage.data.get("key1") == deque(
+        assert storage.stream_storage.data.get("key1") == deque(
             [
                 Value({"id": "0-1", "foo": "bar", "baz": "qux"}),
                 Value({"id": "1-1", "bar": "foo", "baz": "qux"}),
@@ -149,13 +153,13 @@ class TestStorage:
         await storage.set_stream(
             "key1", Value({"id": "2-*", "foo": "bar", "baz": "qux"})
         )
-        assert storage.data.get("key1") == deque(
+        assert storage.stream_storage.data.get("key1") == deque(
             [Value({"id": "2-1", "foo": "bar", "baz": "qux"})]
         )
         await storage.set_stream(
             "key1", Value({"id": "2-*", "foo": "bar", "baz": "qux"})
         )
-        assert storage.data.get("key1") == deque(
+        assert storage.stream_storage.data.get("key1") == deque(
             [
                 Value({"id": "2-1", "foo": "bar", "baz": "qux"}),
                 Value({"id": "2-2", "foo": "bar", "baz": "qux"}),
@@ -178,11 +182,11 @@ class TestStorage:
         monkeypatch.setattr(datetime, "datetime", datetime_mock)
 
         await storage.set_stream("key1", Value({"id": "*", "foo": "bar", "baz": "qux"}))
-        assert storage.data.get("key1") == deque(
+        assert storage.stream_storage.data.get("key1") == deque(
             [Value({"id": "1735689600000-0", "foo": "bar", "baz": "qux"})]
         )
         await storage.set_stream("key1", Value({"id": "*", "foo": "bar", "baz": "qux"}))
-        assert storage.data.get("key1") == deque(
+        assert storage.stream_storage.data.get("key1") == deque(
             [
                 Value({"id": "1735689600000-0", "foo": "bar", "baz": "qux"}),
                 Value({"id": "1735689600000-1", "foo": "bar", "baz": "qux"}),

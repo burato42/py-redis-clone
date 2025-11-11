@@ -5,7 +5,7 @@ from typing import Any, Callable
 
 from app.formatter import formatter
 from app.parser import Command
-from app.storage import Storage, Value
+from app.storage.storage_facade import Storage, Value
 
 
 class Push(Enum):
@@ -219,11 +219,15 @@ class Processor:
             id_parameters = parameters[parameter_size // 2 :]
 
             for record_key, start in zip(key_parameters, id_parameters):
-                if start == "$" and self.storage.data.get(record_key) is None:
+                if (
+                    start == "$"
+                    and self.storage.stream_storage.data.get(record_key) is None
+                ):
                     start_params = 0, 0
-                elif start == "$" and self.storage.data.get(record_key):
+                elif start == "$" and self.storage.stream_storage.data.get(record_key):
                     start_params = ProcessingUtils.prepare_start_params(
-                        self.storage.data.get(record_key)[-1].item["id"])
+                        self.storage.stream_storage.data.get(record_key)[-1].item["id"]
+                    )
                 else:
                     start_params = ProcessingUtils.prepare_start_params(start)
 

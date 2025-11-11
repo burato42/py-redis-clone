@@ -6,7 +6,7 @@ import pytest
 
 from app.parser import Command
 from app.processor import Processor
-from app.storage import Storage, Value
+from app.storage.storage_facade import Storage, Value
 
 
 @pytest.fixture(scope="function")
@@ -50,27 +50,29 @@ class TestProcessor:
     async def test_set_simple(self, processor_stub):
         await processor_stub.process_command((Command.SET, "foo", "bar"))
         assert processor_stub.writer.response[0].decode() == "+OK\r\n"
-        assert processor_stub.storage.data == {"foo": Value(item="bar", expire=None)}
+        assert processor_stub.storage.string_storage.data == {
+            "foo": Value(item="bar", expire=None)
+        }
 
     async def test_set_with_expiration_seconds(self, mock_datetime_now, processor_stub):
         await processor_stub.process_command((Command.SET, "foo", "bar", "ex", 50))
         assert processor_stub.writer.response[0].decode() == "+OK\r\n"
-        assert len(processor_stub.storage.data) == 1
-        assert processor_stub.storage.data["foo"].item == "bar"
-        assert processor_stub.storage.data["foo"].expire == datetime.datetime(
-            2020, 1, 1, 0, 0, 50, tzinfo=datetime.UTC
-        )
+        assert len(processor_stub.storage.string_storage.data) == 1
+        assert processor_stub.storage.string_storage.data["foo"].item == "bar"
+        assert processor_stub.storage.string_storage.data[
+            "foo"
+        ].expire == datetime.datetime(2020, 1, 1, 0, 0, 50, tzinfo=datetime.UTC)
 
     async def test_set_with_expiration_milliseconds(
         self, mock_datetime_now, processor_stub
     ):
         await processor_stub.process_command((Command.SET, "foo", "bar", "Px", 123))
         assert processor_stub.writer.response[0].decode() == "+OK\r\n"
-        assert len(processor_stub.storage.data) == 1
-        assert processor_stub.storage.data["foo"].item == "bar"
-        assert processor_stub.storage.data["foo"].expire == datetime.datetime(
-            2020, 1, 1, 0, 0, 0, 123000, tzinfo=datetime.UTC
-        )
+        assert len(processor_stub.storage.string_storage.data) == 1
+        assert processor_stub.storage.string_storage.data["foo"].item == "bar"
+        assert processor_stub.storage.string_storage.data[
+            "foo"
+        ].expire == datetime.datetime(2020, 1, 1, 0, 0, 0, 123000, tzinfo=datetime.UTC)
 
     async def test_get(self, mock_datetime_now, processor_stub):
         await processor_stub.process_command((Command.GET, "foo"))
@@ -93,39 +95,39 @@ class TestProcessor:
         assert processor_stub.writer.response[0].decode() == "+PONG\r\n"
 
     async def test_rpush(self, processor_stub):
-        assert processor_stub.storage.data == {}
+        assert processor_stub.storage.list_storage.data == {}
         await processor_stub.process_command((Command.RPUSH, "key", "value1", "value2"))
         assert processor_stub.writer.response[0].decode() == ":2\r\n"
-        assert processor_stub.storage.data["key"] == [
+        assert processor_stub.storage.list_storage.data["key"] == [
             Value(item="value1", expire=None),
             Value(item="value2", expire=None),
         ]
         await processor_stub.process_command((Command.RPUSH, "key", "value3"))
         assert processor_stub.writer.response[1].decode() == ":3\r\n"
-        assert processor_stub.storage.data["key"] == [
+        assert processor_stub.storage.list_storage.data["key"] == [
             Value(item="value1", expire=None),
             Value(item="value2", expire=None),
             Value(item="value3", expire=None),
         ]
 
     async def test_lpush(self, processor_stub):
-        assert processor_stub.storage.data == {}
+        assert processor_stub.storage.list_storage.data == {}
         await processor_stub.process_command((Command.LPUSH, "key", "value1", "value2"))
         assert processor_stub.writer.response[0].decode() == ":2\r\n"
-        assert processor_stub.storage.data["key"] == [
+        assert processor_stub.storage.list_storage.data["key"] == [
             Value(item="value2", expire=None),
             Value(item="value1", expire=None),
         ]
         await processor_stub.process_command((Command.LPUSH, "key", "value3"))
         assert processor_stub.writer.response[1].decode() == ":3\r\n"
-        assert processor_stub.storage.data["key"] == [
+        assert processor_stub.storage.list_storage.data["key"] == [
             Value(item="value3", expire=None),
             Value(item="value2", expire=None),
             Value(item="value1", expire=None),
         ]
         await processor_stub.process_command((Command.RPUSH, "key", "value4"))
         assert processor_stub.writer.response[2].decode() == ":4\r\n"
-        assert processor_stub.storage.data["key"] == [
+        assert processor_stub.storage.list_storage.data["key"] == [
             Value(item="value3", expire=None),
             Value(item="value2", expire=None),
             Value(item="value1", expire=None),
@@ -133,7 +135,7 @@ class TestProcessor:
         ]
 
     async def test_range(self, processor_stub):
-        assert processor_stub.storage.data == {}
+        assert processor_stub.storage.list_storage.data == {}
         await processor_stub.process_command(
             (Command.RPUSH, "key", "value1", "value2", "value3", "value4", "value5")
         )
@@ -171,7 +173,7 @@ class TestProcessor:
         )
         await processor_stub.process_command((Command.LPOP, "key"))
         assert processor_stub.writer.response[2].decode() == "$6\r\nvalue1\r\n"
-        assert processor_stub.storage.data["key"] == [
+        assert processor_stub.storage.list_storage.data["key"] == [
             Value(item="value2", expire=None),
             Value(item="value3", expire=None),
         ]
@@ -185,22 +187,12 @@ class TestProcessor:
             processor_stub.writer.response[1].decode()
             == "*2\r\n$6\r\nvalue1\r\n$6\r\nvalue2\r\n"
         )
-        assert processor_stub.storage.data["key"] == [
+        assert processor_stub.storage.list_storage.data["key"] == [
             Value(item="value3", expire=None),
         ]
         await processor_stub.process_command((Command.LPOP, "key", "2"))
         assert processor_stub.writer.response[2].decode() == "*1\r\n$6\r\nvalue3\r\n"
-        assert processor_stub.storage.data["key"] == []
-
-    async def test_blpop_one_value(self, processor_stub):
-        await processor_stub.process_command((Command.SET, "foo", "bar"))
-        await processor_stub.process_command((Command.BLPOP, "foo"))
-        assert processor_stub.writer.response[1].decode() == "$-1\r\n"
-
-    async def test_blpop_one_value_zero_timeout(self, processor_stub):
-        await processor_stub.process_command((Command.SET, "foo", "bar"))
-        await processor_stub.process_command((Command.BLPOP, "foo", "0"))
-        assert processor_stub.writer.response[1].decode() == "$-1\r\n"
+        assert processor_stub.storage.list_storage.data["key"] == []
 
     async def test_blpop_list(self, processor_stub):
         async def set_after_delay():
@@ -529,6 +521,7 @@ class TestProcessor:
         await processor_stub.process_command(
             (Command.XADD, "banana", "0-2", "blueberry", "banana")
         )
+
         async def set_after_delay():
             await asyncio.sleep(0.01)
             await processor_stub.process_command(

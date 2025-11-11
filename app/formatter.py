@@ -1,6 +1,6 @@
 from typing import Optional
 
-from app.storage import Value, ValueType
+from app.storage.storage_facade import Value, ValueType
 
 
 class Formatter:
