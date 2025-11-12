@@ -79,5 +79,10 @@ class Formatter:
 
         return f"*{len(record_list)}\r\n{streams}".encode("utf-8")
 
+    def format_integer_response(
+        self, value: Optional[Value]
+    ) -> bytes:
+        return f":{value.item}\r\n".encode("utf-8")
+
 
 formatter = Formatter()

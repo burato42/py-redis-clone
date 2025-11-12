@@ -36,7 +36,7 @@ class Storage:
             raise KeyError(
                 f"Key {key} is already used for another data type: {data_type}"
             )
-        await self.string_storage.set(key, value)
+        self.string_storage.set(key, value)
 
     async def get_blocking(
         self, key: str, timeout: Optional[float | int] = None
@@ -81,6 +81,13 @@ class Storage:
         return await self.stream_storage.get_stream_range(
             key, start, end, is_inclusive, blocking_period
         )
+
+    def increment(self, key: str) -> Value:
+        if (data_type := self.get_type(key)) not in (ValueType.NONE, ValueType.STRING):
+            raise KeyError(
+                f"Cannot increment {data_type}. Value type should be STRING"
+            )
+        return self.string_storage.increment(key)
 
 
 storage = Storage()

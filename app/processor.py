@@ -244,6 +244,14 @@ class Processor:
 
             self.writer.write(formatter.format_xread_response(record_list))
 
+
+        @self.registry.register(Command.INCR)
+        async def handle_incr(args: list[str]) -> None:
+            # Command example:(Command.INCR, "some_key")
+            response = self.storage.increment(args[0])
+            self.writer.write(formatter.format_integer_response(response))
+
+
     async def process_command(self, command: tuple[Command, *tuple[str]]) -> None:
         """Process a command and return the result into the writer."""
         if not command:
