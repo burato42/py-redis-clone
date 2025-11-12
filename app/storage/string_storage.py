@@ -18,10 +18,13 @@ class StringStorage:
     def set(self, key: str, value: Value) -> None:
         self.data[key] = value
 
-    def increment(self, key: str) -> Value:
+    def increment(self, key: str) -> Optional[Value]:
         if key not in self.data:
             self.data[key] = Value("1")
             return self.data[key]
         current = self.data[key]
+        if not current.item.isdigit():
+            return None
+
         self.data[key].item = str(int(current.item) + 1)
         return self.data[key]

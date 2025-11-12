@@ -546,3 +546,20 @@ class TestProcessor:
             processor_stub.writer.response[4].decode()
             == "*1\r\n*2\r\n$6\r\nbanana\r\n*2\r\n*2\r\n$3\r\n0-3\r\n*2\r\n$6\r\norange\r\n$9\r\nraspberry\r\n*2\r\n$3\r\n0-4\r\n*2\r\n$6\r\norange\r\n$9\r\nraspberry\r\n"
         )
+
+    async def test_increment(self, processor_stub):
+        await processor_stub.process_command(
+            (Command.INCR, "banana")
+        )
+        assert processor_stub.writer.response[0].decode() == ":1\r\n"
+        await processor_stub.process_command(
+            (Command.INCR, "banana")
+        )
+        assert processor_stub.writer.response[1].decode() == ":2\r\n"
+        await processor_stub.process_command(
+            (Command.SET, "mango", "pear")
+        )
+        await processor_stub.process_command(
+            (Command.INCR, "mango")
+        )
+        assert processor_stub.writer.response[3].decode() == "-ERR value is not an integer or out of range\r\n"

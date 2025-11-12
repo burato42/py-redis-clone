@@ -19,26 +19,24 @@ class TestStorage:
         assert storage.stream_storage.data == {}
         assert storage.list_storage.data == {}
 
-    @pytest.mark.asyncio
-    async def test_set(self, storage):
-        await storage.set("key", Value("value1"))
+    def test_set(self, storage):
+        storage.set("key", Value("value1"))
         assert storage.get("key") == Value("value1")
-        await storage.set("key", Value("value2"))
+        storage.set("key", Value("value2"))
         assert storage.get("key") == Value("value2")
 
-    @pytest.mark.asyncio
-    async def test_get(self, storage):
+    def test_get(self, storage):
         assert not storage.get("key")
         future_expiration = datetime.datetime.now() + datetime.timedelta(seconds=3)
         past_expiration = datetime.datetime.now() - datetime.timedelta(seconds=2)
-        await storage.set("key1", Value("value1", expire=future_expiration))
+        storage.set("key1", Value("value1", expire=future_expiration))
         assert storage.get("key1") == Value("value1", expire=future_expiration)
-        await storage.set("key2", Value("value2", expire=past_expiration))
+        storage.set("key2", Value("value2", expire=past_expiration))
         assert not storage.get("key2")
 
     @pytest.mark.asyncio
     async def test_rpush(self, storage):
-        await storage.set("key1", Value("value1"))
+        storage.set("key1", Value("value1"))
         with pytest.raises(
             KeyError,
             match="Key key1 is already used for another data type: ValueType.STRING",
@@ -51,7 +49,7 @@ class TestStorage:
 
     @pytest.mark.asyncio
     async def test_lpush(self, storage):
-        await storage.set("key1", Value("value1"))
+        storage.set("key1", Value("value1"))
         with pytest.raises(
             KeyError,
             match="Key key1 is already used for another data type: ValueType.STRING",
@@ -101,7 +99,7 @@ class TestStorage:
     @pytest.mark.asyncio
     async def test_type(self, storage):
         assert storage.get_type("key1") == ValueType.NONE
-        await storage.set("key1", Value("value1"))
+        storage.set("key1", Value("value1"))
         assert storage.get_type("key1") == ValueType.STRING
         await storage.rpush("key2", [Value("value1"), Value("value2")])
         assert storage.get_type("key2") == ValueType.LIST
@@ -314,3 +312,13 @@ class TestStorage:
             Value({"id": "0-2", "foo": "bar", "baz": "qux"}),
             Value({"id": "1-1", "foo": "bar", "baz": "qux"}),
         ]
+
+    def test_increment(self, storage):
+        res1 = storage.increment("key1")
+        assert storage.get(key="key1") == res1
+        assert res1 == Value(item="1")
+        res2 = storage.increment("key1")
+        assert storage.get(key="key1") == res2
+        assert res2 == Value(item="2")
+        storage.set("key2", Value("string"))
+        assert storage.increment("key2") is None

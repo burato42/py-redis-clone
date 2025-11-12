@@ -31,7 +31,7 @@ class Storage:
             return self.list_storage.get(key)
         return None
 
-    async def set(self, key: str, value: Value) -> None:
+    def set(self, key: str, value: Value) -> None:
         if (data_type := self.get_type(key)) not in (ValueType.NONE, ValueType.STRING):
             raise KeyError(
                 f"Key {key} is already used for another data type: {data_type}"
@@ -82,7 +82,7 @@ class Storage:
             key, start, end, is_inclusive, blocking_period
         )
 
-    def increment(self, key: str) -> Value:
+    def increment(self, key: str) -> Optional[Value]:
         if (data_type := self.get_type(key)) not in (ValueType.NONE, ValueType.STRING):
             raise KeyError(
                 f"Cannot increment {data_type}. Value type should be STRING"

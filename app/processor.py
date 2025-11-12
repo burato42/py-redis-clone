@@ -71,7 +71,7 @@ class Processor:
                 )
             else:
                 expiration = None
-            await self.storage.set(record_key, Value(record_value, expiration))
+            self.storage.set(record_key, Value(record_value, expiration))
             self.writer.write(formatter.format_ok_expression())
 
         @self.registry.register(Command.GET)
@@ -249,7 +249,10 @@ class Processor:
         async def handle_incr(args: list[str]) -> None:
             # Command example:(Command.INCR, "some_key")
             response = self.storage.increment(args[0])
-            self.writer.write(formatter.format_integer_response(response))
+            if response:
+                self.writer.write(formatter.format_integer_response(response))
+            else:
+                self.writer.write(formatter.format_simple_error(Exception("value is not an integer or out of range")))
 
 
     async def process_command(self, command: tuple[Command, *tuple[str]]) -> None:
