@@ -130,3 +130,9 @@ class TestParser:
             b"*2\r\n$4\r\nINCR\r\n$6\r\norange\r\n"
         )
         assert cmd == (Command.INCR, "orange")
+
+    def test_transaction(self):
+        cmd = parser.parse_command(
+            b"*1\r\n$5\r\nMULTI\r\n"
+        )
+        assert cmd == (Command.MULTI,)

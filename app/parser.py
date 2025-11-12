@@ -17,6 +17,7 @@ class Command(Enum):
     XRANGE = 13
     XREAD = 14
     INCR = 15
+    MULTI = 16
 
 
 class Parser:
@@ -36,6 +37,7 @@ class Parser:
         "XRANGE": Command.XRANGE,
         "XREAD": Command.XREAD,
         "INCR": Command.INCR,
+        "MULTI": Command.MULTI,
     }
 
     def parse_command(self, payload: bytes) -> tuple[Command, *tuple[str, ...]]:

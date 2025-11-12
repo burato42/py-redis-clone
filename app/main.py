@@ -9,12 +9,13 @@ async def handle_client(reader, writer):
     """Handle a single client connection."""
 
     try:
+        processor = Processor(writer, storage)
+        print(f"Client: {id(writer.transport)}")
         while True:
             data = await reader.read(1024)
             if not data:
                 break
             cmd = parser.parse_command(data)
-            processor = Processor(writer, storage)
             await processor.process_command(cmd)
     except Exception as e:
         print(f"Error: {e}")

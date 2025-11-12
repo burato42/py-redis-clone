@@ -84,5 +84,8 @@ class Formatter:
     ) -> bytes:
         return f":{value.item}\r\n".encode("utf-8")
 
+    def format_queued_response(self) -> bytes:
+        return b"+QUEUED\r\n"
+
 
 formatter = Formatter()

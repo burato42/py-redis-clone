@@ -563,3 +563,10 @@ class TestProcessor:
             (Command.INCR, "mango")
         )
         assert processor_stub.writer.response[3].decode() == "-ERR value is not an integer or out of range\r\n"
+
+
+    async def test_transactions(self, processor_stub):
+        await processor_stub.process_command((Command.MULTI,))
+        assert processor_stub.writer.response[0].decode() == "+OK\r\n"
+        await processor_stub.process_command((Command.SET, "foo", "bar"))
+        assert processor_stub.writer.response[1].decode() == "+QUEUED\r\n"

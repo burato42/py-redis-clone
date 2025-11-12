@@ -1,5 +1,6 @@
 import asyncio
 import datetime  # use this way to keep tests working
+from collections import defaultdict, deque
 from enum import Enum
 from typing import Any, Callable
 
@@ -42,9 +43,17 @@ class CommandHandlerRegistry:
 
 
 class Processor:
-    def __init__(self, writer: Any, storage: Storage):
+    def __init__(
+            self,
+            writer: Any,
+            storage: Storage,
+            # connection_locks: defaultdict[int, asyncio.Lock]
+    ):
         self.writer = writer
         self.storage = storage
+        # self.connection_locks = connection_locks
+        self.is_queued = False
+        self.command_queue = deque()
         self.registry = CommandHandlerRegistry()
         self._register_handlers()
 
@@ -254,11 +263,21 @@ class Processor:
             else:
                 self.writer.write(formatter.format_simple_error(Exception("value is not an integer or out of range")))
 
+        @self.registry.register(Command.MULTI)
+        async def handle_multi(_: list[str]) -> None:
+            self.is_queued = True
+            self.writer.write(formatter.format_ok_expression())
 
     async def process_command(self, command: tuple[Command, *tuple[str]]) -> None:
         """Process a command and return the result into the writer."""
         if not command:
             raise RuntimeError("Empty command")
+
+        if self.is_queued:
+            self.command_queue.append(command)
+            self.writer.write(formatter.format_queued_response())
+            await self.writer.drain()
+            return
 
         cmd_type = command[0]
         args = list(command[1:])
