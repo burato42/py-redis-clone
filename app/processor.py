@@ -268,6 +268,18 @@ class Processor:
             self.is_queued = True
             self.writer.write(formatter.format_ok_expression())
 
+        @self.registry.register(Command.EXEC)
+        async def handle_exec(_: list[str]) -> None:
+            if not self.is_queued:
+                self.writer.write(formatter.format_simple_error(Exception("EXEC without MULTI")))
+                return
+
+            self.is_queued = False
+            for command in self.command_queue:
+                await self.process_command(command)
+            self.command_queue.clear()
+
+
     async def process_command(self, command: tuple[Command, *tuple[str]]) -> None:
         """Process a command and return the result into the writer."""
         if not command:

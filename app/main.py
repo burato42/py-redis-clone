@@ -10,7 +10,6 @@ async def handle_client(reader, writer):
 
     try:
         processor = Processor(writer, storage)
-        print(f"Client: {id(writer.transport)}")
         while True:
             data = await reader.read(1024)
             if not data:
