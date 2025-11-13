@@ -274,6 +274,11 @@ class Processor:
                 self.writer.write(formatter.format_simple_error(Exception("EXEC without MULTI")))
                 return
 
+            if not self.command_queue:
+                self.is_queued = False
+                self.writer.write(formatter.format_lrange_response(None))
+                return
+
             self.is_queued = False
             for command in self.command_queue:
                 await self.process_command(command)
@@ -285,13 +290,14 @@ class Processor:
         if not command:
             raise RuntimeError("Empty command")
 
-        if self.is_queued:
+        cmd_type = command[0]
+
+        if self.is_queued and cmd_type != Command.EXEC:
             self.command_queue.append(command)
             self.writer.write(formatter.format_queued_response())
             await self.writer.drain()
             return
 
-        cmd_type = command[0]
         args = list(command[1:])
 
         handler = self.registry.get_handler(cmd_type)
