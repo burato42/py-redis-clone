@@ -132,3 +132,11 @@ class TestParser:
     def test_transaction(self):
         cmd = parser.parse_command(b"*1\r\n$5\r\nMULTI\r\n")
         assert cmd == (Command.MULTI,)
+
+    def test_exec(self):
+        cmd = parser.parse_command(b"*1\r\n$4\r\nEXEC\r\n")
+        assert cmd == (Command.EXEC,)
+
+    def test_discard(self):
+        cmd = parser.parse_command(b"*1\r\n$7\r\nDISCARD\r\n")
+        assert cmd == (Command.DISCARD,)

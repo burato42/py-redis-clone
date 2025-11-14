@@ -1,5 +1,5 @@
 import asyncio
-import datetime  # use this way to keep tests working
+import datetime  # use this way to keep the tests working
 from collections import deque
 from enum import Enum
 from typing import Any, Callable
@@ -285,6 +285,15 @@ class Processor:
             self.command_queue.clear()
             return formatter.format_multiple_responses(responses)
 
+        @self.registry.register(Command.DISCARD)
+        async def handle_discard(_: list[str]) -> bytes:
+            if not self.is_queued:
+                return formatter.format_simple_error(Exception("DISCARD without MULTI"))
+
+            self.is_queued = False
+            self.command_queue.clear()
+            return formatter.format_ok_expression()
+
     async def _execute_command(self, command: CommandType) -> bytes:
         """Execute a command and return the formatted result"""
         if not command:
@@ -292,18 +301,18 @@ class Processor:
 
         cmd_type = command[0]
 
-        if self.is_queued and cmd_type != Command.EXEC:
-            self.command_queue.append(command)
-            response = formatter.format_queued_response()
-        else:
+        if cmd_type == Command.DISCARD or not (self.is_queued and cmd_type != Command.EXEC):
+            # For DISCARD or with non-transactional processing
             args = list(command[1:])
-
             handler = self.registry.get_handler(cmd_type)
-
             if handler is None:
                 raise RuntimeError(f"Unknown command: {cmd_type}")
-
             response = await handler(args)
+        else:
+            # For open transaction
+            self.command_queue.append(command)
+            response = formatter.format_queued_response()
+
         return response
 
     async def process_command(self, command: CommandType) -> None:
