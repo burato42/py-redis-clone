@@ -79,13 +79,17 @@ class Formatter:
 
         return f"*{len(record_list)}\r\n{streams}".encode("utf-8")
 
-    def format_integer_response(
-        self, value: Optional[Value]
-    ) -> bytes:
+    def format_integer_response(self, value: Value) -> bytes:
         return f":{value.item}\r\n".encode("utf-8")
 
     def format_queued_response(self) -> bytes:
         return b"+QUEUED\r\n"
+
+    def format_multiple_responses(self, responses: list[bytes]) -> bytes:
+        execution_result = f"*{len(responses)}\r\n".encode("utf-8")
+        for response in responses:
+            execution_result += response
+        return execution_result
 
 
 formatter = Formatter()

@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional
 
 from app.storage.list_storage import ListStorage
 from app.storage.stream_storage import StreamStorage
@@ -84,9 +84,7 @@ class Storage:
 
     def increment(self, key: str) -> Optional[Value]:
         if (data_type := self.get_type(key)) not in (ValueType.NONE, ValueType.STRING):
-            raise KeyError(
-                f"Cannot increment {data_type}. Value type should be STRING"
-            )
+            raise KeyError(f"Cannot increment {data_type}. Value type should be STRING")
         return self.string_storage.increment(key)
 
 

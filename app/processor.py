@@ -1,6 +1,6 @@
 import asyncio
 import datetime  # use this way to keep tests working
-from collections import defaultdict, deque
+from collections import deque
 from enum import Enum
 from typing import Any, Callable
 
@@ -16,6 +16,9 @@ class Push(Enum):
 
 class StreamParams(Enum):
     BLOCK = 1
+
+
+CommandType = tuple[Command, *tuple[str]]
 
 
 class CommandHandlerRegistry:
@@ -44,16 +47,14 @@ class CommandHandlerRegistry:
 
 class Processor:
     def __init__(
-            self,
-            writer: Any,
-            storage: Storage,
-            # connection_locks: defaultdict[int, asyncio.Lock]
+        self,
+        writer: Any,
+        storage: Storage,
     ):
         self.writer = writer
         self.storage = storage
-        # self.connection_locks = connection_locks
         self.is_queued = False
-        self.command_queue = deque()
+        self.command_queue: deque[CommandType] = deque()
         self.registry = CommandHandlerRegistry()
         self._register_handlers()
 
@@ -61,12 +62,12 @@ class Processor:
         """Register all command handlers"""
 
         @self.registry.register(Command.ECHO)
-        async def handle_echo(args: list[str]) -> None:
+        async def handle_echo(args: list[str]) -> bytes:
             # Command example: (Command.ECHO, "banana")
-            self.writer.write(formatter.format_string_expression(args[0]))
+            return formatter.format_string_expression(args[0])
 
         @self.registry.register(Command.SET)
-        async def handle_set(args: list[str]) -> None:
+        async def handle_set(args: list[str]) -> bytes:
             # Command example: (Command.SET, "foo", "bar", "PX", 100)
             # TODO Add check that only optional either EX or PX are possible
             record_key = args[0]
@@ -81,52 +82,52 @@ class Processor:
             else:
                 expiration = None
             self.storage.set(record_key, Value(record_value, expiration))
-            self.writer.write(formatter.format_ok_expression())
+            return formatter.format_ok_expression()
 
         @self.registry.register(Command.GET)
-        async def handle_get(args: list[str]) -> None:
+        async def handle_get(args: list[str]) -> bytes:
             # Command example: (Command.GET, "foo")
             value = self.storage.get(args[0])
-            self.writer.write(formatter.format_get_response(value))
+            return formatter.format_get_response(value)
 
         @self.registry.register(Command.PING)
-        async def handle_ping(_: list[str]) -> None:
+        async def handle_ping(_: list[str]) -> bytes:
             # Command example: (Command.PING,)
-            self.writer.write(b"+PONG\r\n")
+            return b"+PONG\r\n"
 
         @self.registry.register(Command.RPUSH)
-        async def handle_rpush(args: list[str]) -> None:
+        async def handle_rpush(args: list[str]) -> bytes:
             # Command example: (Command.RPUSH, "key", "value1", "value2")
-            await self._process_push_command(Push.RIGHT, args)
+            return await self._process_push_command(Push.RIGHT, args)
 
         @self.registry.register(Command.LPUSH)
-        async def handle_lpush(args: list[str]) -> None:
+        async def handle_lpush(args: list[str]) -> bytes:
             # Command example: (Command.LPUSH, "key", "value1", "value2")
-            await self._process_push_command(Push.LEFT, args)
+            return await self._process_push_command(Push.LEFT, args)
 
         @self.registry.register(Command.LRANGE)
-        async def handle_lrange(args: list[str]) -> None:
+        async def handle_lrange(args: list[str]) -> bytes:
             # Command example: (Command.LRANGE, "list_key", "0", "1")
             record_key = args[0]
             all_values = self.storage.get(record_key)
             if not all_values:
-                self.writer.write(formatter.format_lrange_response(None))
-            else:
-                values = all_values[int(args[1]) : int(args[2]) + 1 or len(all_values)]
-                self.writer.write(formatter.format_lrange_response(values))
+                return formatter.format_lrange_response(None)
+
+            values = all_values[int(args[1]) : int(args[2]) + 1 or len(all_values)]
+            return formatter.format_lrange_response(values)
 
         @self.registry.register(Command.LLEN)
-        async def handle_llen(args: list[str]) -> None:
+        async def handle_llen(args: list[str]) -> bytes:
             # Command example: (Command.LLEN, "list_key")
             record_key = args[0]
             all_values = self.storage.get(record_key)
             if not all_values or not isinstance(all_values, list):
-                self.writer.write(formatter.format_len_response([]))
-            else:
-                self.writer.write(formatter.format_len_response(all_values))
+                return formatter.format_len_response([])
+
+            return formatter.format_len_response(all_values)
 
         @self.registry.register(Command.BLPOP)
-        async def handle_blpop(args: list[str]) -> None:
+        async def handle_blpop(args: list[str]) -> bytes:
             # Command example: (Command.BLPOP, "mango", "0")
             record_key = args[0]
             if len(args) >= 2 and args[1] != "0":
@@ -137,39 +138,39 @@ class Processor:
             try:
                 all_values = await self.storage.get_blocking(record_key, timeout)
                 if not all_values or not isinstance(all_values, list):
-                    self.writer.write(formatter.format_get_response(None))
+                    return formatter.format_get_response(None)
                 else:
                     key_and_value = [Value(record_key), all_values.pop(0)]
-                    self.writer.write(formatter.format_lrange_response(key_and_value))
+                    return formatter.format_lrange_response(key_and_value)
             except asyncio.TimeoutError:
-                self.writer.write(formatter.format_null_array_response())
+                return formatter.format_null_array_response()
 
         @self.registry.register(Command.LPOP)
-        async def handle_lpop(args: list[str]) -> None:
+        async def handle_lpop(args: list[str]) -> bytes:
             # Command example: (Command.LPOP, "mango")
             record_key = args[0]
             all_values = self.storage.get(record_key)
             if not all_values or not isinstance(all_values, list):
-                self.writer.write(formatter.format_get_response(None))
+                return formatter.format_get_response(None)
             elif len(args) == 2:
                 queried = []
                 for _ in range(int(args[1])):
                     if not all_values:
                         break
                     queried.append(all_values.pop(0))
-                self.writer.write(formatter.format_lrange_response(queried))
+                return formatter.format_lrange_response(queried)
             else:
-                self.writer.write(formatter.format_get_response(all_values.pop(0)))
+                return formatter.format_get_response(all_values.pop(0))
 
         @self.registry.register(Command.TYPE)
-        async def handle_type(args: list[str]) -> None:
+        async def handle_type(args: list[str]) -> bytes:
             # Command example: (Command.TYPE, "foo")
             record_key = args[0]
             record_type = self.storage.get_type(record_key)
-            self.writer.write(formatter.format_type_response(record_type))
+            return formatter.format_type_response(record_type)
 
         @self.registry.register(Command.XADD)
-        async def handle_xadd(args: list[str]) -> None:
+        async def handle_xadd(args: list[str]) -> bytes:
             # Command example: (Command.XADD,  "key1", "0-1", "foo", "bar", "baz", "qux")
             record_key = args[0]
             stream_key = args[1]
@@ -181,12 +182,12 @@ class Processor:
 
             try:
                 stream_id = await self.storage.set_stream(record_key, Value(obj))
-                self.writer.write(formatter.format_string_expression(stream_id))
+                return formatter.format_string_expression(stream_id)
             except ValueError as err:
-                self.writer.write(formatter.format_simple_error(err))
+                return formatter.format_simple_error(err)
 
         @self.registry.register(Command.XRANGE)
-        async def handle_xrange(args: list[str]) -> None:
+        async def handle_xrange(args: list[str]) -> bytes:
             # Command example:(Command.XRANGE, "some_key", "1526985054069-0", "1526985054079")
             record_key = args[0]
 
@@ -203,10 +204,10 @@ class Processor:
             records = await self.storage.get_stream_range(
                 record_key, start_params, end_params, is_inclusive=True
             )
-            self.writer.write(formatter.format_xrange_response(records))
+            return formatter.format_xrange_response(records)
 
         @self.registry.register(Command.XREAD)
-        async def handle_xread(args: list[str]) -> None:
+        async def handle_xread(args: list[str]) -> bytes:
             # Command example:(Command.XREAD, "STREAMS", "some_key", "1526985054069-0")
             record_list: list[
                 tuple[str, list[Value]]
@@ -251,42 +252,41 @@ class Processor:
                 if records:
                     record_list.append((record_key, records))
 
-            self.writer.write(formatter.format_xread_response(record_list))
-
+            return formatter.format_xread_response(record_list)
 
         @self.registry.register(Command.INCR)
-        async def handle_incr(args: list[str]) -> None:
+        async def handle_incr(args: list[str]) -> bytes:
             # Command example:(Command.INCR, "some_key")
             response = self.storage.increment(args[0])
             if response:
-                self.writer.write(formatter.format_integer_response(response))
-            else:
-                self.writer.write(formatter.format_simple_error(Exception("value is not an integer or out of range")))
+                return formatter.format_integer_response(response)
+            return formatter.format_simple_error(
+                Exception("value is not an integer or out of range")
+            )
 
         @self.registry.register(Command.MULTI)
-        async def handle_multi(_: list[str]) -> None:
+        async def handle_multi(_: list[str]) -> bytes:
             self.is_queued = True
-            self.writer.write(formatter.format_ok_expression())
+            return formatter.format_ok_expression()
 
         @self.registry.register(Command.EXEC)
-        async def handle_exec(_: list[str]) -> None:
+        async def handle_exec(_: list[str]) -> bytes:
             if not self.is_queued:
-                self.writer.write(formatter.format_simple_error(Exception("EXEC without MULTI")))
-                return
+                return formatter.format_simple_error(Exception("EXEC without MULTI"))
 
             if not self.command_queue:
                 self.is_queued = False
-                self.writer.write(formatter.format_lrange_response(None))
-                return
+                return formatter.format_lrange_response(None)
 
             self.is_queued = False
+            responses = []
             for command in self.command_queue:
-                await self.process_command(command)
+                responses.append(await self._execute_command(command))
             self.command_queue.clear()
+            return formatter.format_multiple_responses(responses)
 
-
-    async def process_command(self, command: tuple[Command, *tuple[str]]) -> None:
-        """Process a command and return the result into the writer."""
+    async def _execute_command(self, command: CommandType) -> bytes:
+        """Execute a command and return the formatted result"""
         if not command:
             raise RuntimeError("Empty command")
 
@@ -294,21 +294,25 @@ class Processor:
 
         if self.is_queued and cmd_type != Command.EXEC:
             self.command_queue.append(command)
-            self.writer.write(formatter.format_queued_response())
-            await self.writer.drain()
-            return
+            response = formatter.format_queued_response()
+        else:
+            args = list(command[1:])
 
-        args = list(command[1:])
+            handler = self.registry.get_handler(cmd_type)
 
-        handler = self.registry.get_handler(cmd_type)
+            if handler is None:
+                raise RuntimeError(f"Unknown command: {cmd_type}")
 
-        if handler is None:
-            raise RuntimeError(f"Unknown command: {cmd_type}")
+            response = await handler(args)
+        return response
 
-        await handler(args)
+    async def process_command(self, command: CommandType) -> None:
+        """Run the command execution and writes the result into writer"""
+        response = await self._execute_command(command)
+        self.writer.write(response)
         await self.writer.drain()
 
-    async def _process_push_command(self, push: Push, args: list[str]) -> None:
+    async def _process_push_command(self, push: Push, args: list[str]) -> bytes:
         record_key = args[0]
         values = None
         match push:
@@ -322,7 +326,7 @@ class Processor:
                 )
         if not values:
             raise RuntimeError(f"No values for {record_key}")
-        self.writer.write(formatter.format_len_response(values))
+        return formatter.format_len_response(values)
 
 
 class ProcessingUtils:

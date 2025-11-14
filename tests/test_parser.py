@@ -126,13 +126,9 @@ class TestParser:
         assert cmd == (Command.XREAD, "BLOCK", "1000", "STREAMS", "orange", "0-2")
 
     def test_increment(self):
-        cmd = parser.parse_command(
-            b"*2\r\n$4\r\nINCR\r\n$6\r\norange\r\n"
-        )
+        cmd = parser.parse_command(b"*2\r\n$4\r\nINCR\r\n$6\r\norange\r\n")
         assert cmd == (Command.INCR, "orange")
 
     def test_transaction(self):
-        cmd = parser.parse_command(
-            b"*1\r\n$5\r\nMULTI\r\n"
-        )
+        cmd = parser.parse_command(b"*1\r\n$5\r\nMULTI\r\n")
         assert cmd == (Command.MULTI,)
