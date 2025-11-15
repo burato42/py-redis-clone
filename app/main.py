@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 
 from app.parser import parser
@@ -23,14 +24,17 @@ async def handle_client(reader, writer):
         await writer.wait_closed()
 
 
-async def main():
+async def main(port: int):
     print("Logs from your program will appear here!")
 
-    server = await asyncio.start_server(handle_client, "localhost", 6379)
+    server = await asyncio.start_server(handle_client, "localhost", port)
 
     async with server:
         await server.serve_forever()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("-p", "--port", help="port number", type=int, default=6379)
+    args = arg_parser.parse_args()
+    asyncio.run(main(args.port))
