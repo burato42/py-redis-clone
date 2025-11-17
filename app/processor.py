@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 from app.formatter import formatter
 from app.parser import Command
+from app.status import Status
 from app.storage.storage_facade import Storage, Value
 
 
@@ -50,9 +51,11 @@ class Processor:
         self,
         writer: Any,
         storage: Storage,
+        status: Status,
     ):
         self.writer = writer
         self.storage = storage
+        self.status = status
         self.is_queued = False
         self.command_queue: deque[CommandType] = deque()
         self.registry = CommandHandlerRegistry()
@@ -293,6 +296,12 @@ class Processor:
             self.is_queued = False
             self.command_queue.clear()
             return formatter.format_ok_expression()
+
+        @self.registry.register(Command.INFO)
+        async def handle_info(args: list[str]) -> bytes:
+            # Command example: (Command.INFO, "replication")
+            return formatter.format_string_expression(f"role:{self.status.role}")
+
 
     async def _execute_command(self, command: CommandType) -> bytes:
         """Execute a command and return the formatted result"""

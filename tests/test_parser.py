@@ -140,3 +140,8 @@ class TestParser:
     def test_discard(self):
         cmd = parser.parse_command(b"*1\r\n$7\r\nDISCARD\r\n")
         assert cmd == (Command.DISCARD,)
+
+
+    def test_info(self):
+        cmd = parser.parse_command(b"*2\r\n$4\r\nINFO\r\n$11\r\nreplication\r\n")
+        assert cmd == (Command.INFO, "replication")

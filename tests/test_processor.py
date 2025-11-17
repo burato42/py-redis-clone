@@ -6,6 +6,7 @@ import pytest
 
 from app.parser import Command
 from app.processor import Processor
+from app.status import Status
 from app.storage.storage_facade import Storage, Value
 
 
@@ -30,8 +31,13 @@ def storage_stub():
 
 
 @pytest.fixture(scope="function")
-def processor_stub(writer, storage_stub):
-    return Processor(writer, storage_stub)
+def status_stub():
+    return Status("primary")
+
+
+@pytest.fixture(scope="function")
+def processor_stub(writer, storage_stub, status_stub):
+    return Processor(writer, storage_stub, status_stub)
 
 
 @pytest.fixture()
@@ -598,3 +604,7 @@ class TestProcessor:
         assert (
             processor_stub.writer.response[4].decode() == "-ERR EXEC without MULTI\r\n"
         )
+
+    async def test_info(self, processor_stub):
+        await processor_stub.process_command((Command.INFO, "replication"))
+        assert processor_stub.writer.response[0].decode() == "$12\r\nrole:primary\r\n"

@@ -20,6 +20,7 @@ class Command(Enum):
     MULTI = 16
     EXEC = 17
     DISCARD = 18
+    INFO = 19
 
 
 class Parser:
@@ -42,6 +43,7 @@ class Parser:
         "MULTI": Command.MULTI,
         "EXEC": Command.EXEC,
         "DISCARD": Command.DISCARD,
+        "INFO": Command.INFO,
     }
 
     def parse_command(self, payload: bytes) -> tuple[Command, *tuple[str, ...]]:

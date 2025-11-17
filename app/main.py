@@ -3,14 +3,16 @@ import asyncio
 
 from app.parser import parser
 from app.processor import Processor
+from app.status import Status
 from app.storage.storage_facade import storage
 
 
 async def handle_client(reader, writer):
     """Handle a single client connection."""
 
+    status = Status("master")
     try:
-        processor = Processor(writer, storage)
+        processor = Processor(writer, storage, status)
         while True:
             data = await reader.read(1024)
             if not data:
