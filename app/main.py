@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 
+from app.client import Client
 from app.parser import parser
 from app.processor import Processor
 from app.status import Status
@@ -13,8 +14,11 @@ async def main(port: int, replicaof: str):
     if replicaof is None:
         status = Status("master", "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb", 0)
     else:
-        host, replica_port = replicaof.split(" ")
+        primary_host, primary_port = replicaof.split(" ")
         status = Status("slave", "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb", 0)
+        async with Client(primary_host, int(primary_port)) as client:
+            response = await client.ping()
+            print(response)
 
     async def handle_client(reader, writer):
         """Handle a single client connection."""
