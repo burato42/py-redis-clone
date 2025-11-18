@@ -11,10 +11,10 @@ async def main(port: int, replicaof: str):
     print("Logs from your program will appear here!")
 
     if replicaof is None:
-        status = Status("master")
+        status = Status("master", "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb", 0)
     else:
         host, replica_port = replicaof.split(" ")
-        status = Status("slave")
+        status = Status("slave", "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb", 0)
 
     async def handle_client(reader, writer):
         """Handle a single client connection."""

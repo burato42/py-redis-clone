@@ -300,7 +300,10 @@ class Processor:
         @self.registry.register(Command.INFO)
         async def handle_info(args: list[str]) -> bytes:
             # Command example: (Command.INFO, "replication")
-            return formatter.format_string_expression(f"role:{self.status.role}")
+            response_text = f"role:{self.status.role}"
+            response_text += f"\r\nmaster_replid:{self.status.master_replid}"
+            response_text += f"\r\nmaster_repl_offset:{self.status.master_repl_offset}"
+            return formatter.format_string_expression(response_text)
 
 
     async def _execute_command(self, command: CommandType) -> bytes:
