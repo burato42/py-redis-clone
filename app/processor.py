@@ -312,11 +312,19 @@ class Processor:
                 print(
                     "listening_port", args[1]
                 )  # TODO need to add proper logging at some point
-            elif args[0].upper() == "CAPA" and args[1].upper() == "PSYNC2":
+            elif args[0].upper() == "CAPA" and args[1].upper() == Command.PSYNC2.name:
                 print("capa", args[1])
             else:
                 return formatter.format_simple_error("Unexpected command")
             return formatter.format_ok_expression()
+
+        @self.registry.register(Command.PSYNC)
+        async def handle_psync(args: list[str]) -> bytes:
+            if args[0].upper() == "?" and args[1] == "-1":
+                return f"+{Command.FULLRESYNC.name} {self.status.master_replid} 0\r\n".encode(
+                    "utf-8"
+                )
+            return formatter.format_simple_error("Unexpected command")
 
     async def _execute_command(self, command: CommandType) -> bytes:
         """Execute a command and return the formatted result"""

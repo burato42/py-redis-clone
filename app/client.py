@@ -1,6 +1,8 @@
 import asyncio
 from typing import Optional, Any
 
+from app.parser import Command
+
 
 class Client:
     def __init__(self, host: str = "localhost", port: int = 6379):
@@ -42,27 +44,27 @@ class Client:
 
     async def ping(self) -> Optional[str]:
         """PING command."""
-        return await self._send_command("PING")
+        return await self._send_command(Command.PING.name)
 
     async def replconf_port(self, port: str) -> Optional[str]:
         """REPLCONF command for listening on port number."""
-        return await self._send_command("REPLCONF", "listening-port", port)
+        return await self._send_command(Command.REPLCONF.name, "listening-port", port)
 
     async def replicaconf_capabilities(self, protocol: str) -> Optional[str]:
         """REPLCONF command for setting relication protocol."""
-        return await self._send_command("REPLCONF", "capa", protocol)
+        return await self._send_command(Command.REPLCONF.name, "capa", protocol)
+
+    async def psync(self, replication_id: str, offset: int) -> Optional[str]:
+        """PSYNC command."""
+        return await self._send_command(Command.PSYNC.name, replication_id, str(offset))
 
     async def get(self, key: str) -> Optional[str]:
         """GET command."""
-        return await self._send_command("GET", key)
+        return await self._send_command(Command.GET.name, key)
 
     async def set(self, key: str, value: str) -> str:
         """SET command."""
-        return await self._send_command("SET", key, value)
-
-    async def delete(self, key: str) -> int:
-        """DELETE command."""
-        return await self._send_command("DEL", key)
+        return await self._send_command(Command.SET.name, key, value)
 
     # Context manager support
     async def __aenter__(self):

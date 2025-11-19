@@ -1,5 +1,7 @@
 from enum import Enum
 
+# TODO implement stricter version of the redis-protocol
+
 
 class Command(Enum):
     ECHO = 1
@@ -22,6 +24,10 @@ class Command(Enum):
     DISCARD = 18
     INFO = 19
     REPLCONF = 20
+    PSYNC = 21
+    PSYNC2 = 22
+    OK = 23
+    FULLRESYNC = 24
 
 
 class Parser:
@@ -46,6 +52,10 @@ class Parser:
         "DISCARD": Command.DISCARD,
         "INFO": Command.INFO,
         "REPLCONF": Command.REPLCONF,
+        "PSYNC": Command.PSYNC,
+        "PSYNC2": Command.PSYNC2,
+        "OK": Command.OK,
+        "FULLRESYNC": Command.FULLRESYNC,
     }
 
     def parse_command(self, payload: bytes) -> tuple[Command, *tuple[str, ...]]:

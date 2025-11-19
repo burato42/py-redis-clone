@@ -19,19 +19,18 @@ async def main(port: int, replicaof: str):
         async with Client(primary_host, int(primary_port)) as client:
             response = await client.ping()
             print(response)
-            if (
-                "PONG" in response.upper()
-            ):  # TODO implement a protocol for the interaction
+            if "PONG" in response:  # TODO implement a protocol for the interaction
                 replica_port_response = await client.replconf_port(port)
-                if "OK" not in replica_port_response.upper():
+                if "OK" not in replica_port_response:
                     raise ValueError(
                         f"Wrong configuration for primary {primary_host, primary_port}: {replica_port_response}"
                     )
                 replica_capa_response = await client.replicaconf_capabilities("psync2")
-                if "OK" not in replica_capa_response.upper():
+                if "OK" not in replica_capa_response:
                     raise ValueError(
                         f"Wrong configuration for primary {primary_host, primary_port}: {replica_port_response}"
                     )
+                await client.psync("?", -1)
 
     async def handle_client(reader, writer):
         """Handle a single client connection."""
