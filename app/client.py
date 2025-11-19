@@ -3,7 +3,7 @@ from typing import Optional, Any
 
 
 class Client:
-    def __init__(self, host: str = 'localhost', port: int = 6379):
+    def __init__(self, host: str = "localhost", port: int = 6379):
         self.host = host
         self.port = port
         self.reader: Optional[asyncio.StreamReader] = None
@@ -11,9 +11,7 @@ class Client:
         self._lock = asyncio.Lock()
 
     async def connect(self):
-        self.reader, self.writer = await asyncio.open_connection(
-            self.host, self.port
-        )
+        self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
 
     async def close(self):
         if self.writer:
@@ -43,20 +41,28 @@ class Client:
         return data.decode().strip()
 
     async def ping(self) -> Optional[str]:
-        """GET command."""
-        return await self._send_command('PING')
+        """PING command."""
+        return await self._send_command("PING")
+
+    async def replconf_port(self, port: str) -> Optional[str]:
+        """REPLCONF command for listening on port number."""
+        return await self._send_command("REPLCONF", "listening-port", port)
+
+    async def replicaconf_capabilities(self, protocol: str) -> Optional[str]:
+        """REPLCONF command for setting relication protocol."""
+        return await self._send_command("REPLCONF", "capa", protocol)
 
     async def get(self, key: str) -> Optional[str]:
         """GET command."""
-        return await self._send_command('GET', key)
+        return await self._send_command("GET", key)
 
     async def set(self, key: str, value: str) -> str:
         """SET command."""
-        return await self._send_command('SET', key, value)
+        return await self._send_command("SET", key, value)
 
     async def delete(self, key: str) -> int:
         """DELETE command."""
-        return await self._send_command('DEL', key)
+        return await self._send_command("DEL", key)
 
     # Context manager support
     async def __aenter__(self):

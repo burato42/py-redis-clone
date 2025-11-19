@@ -298,13 +298,25 @@ class Processor:
             return formatter.format_ok_expression()
 
         @self.registry.register(Command.INFO)
-        async def handle_info(args: list[str]) -> bytes:
+        async def handle_info(_: list[str]) -> bytes:
             # Command example: (Command.INFO, "replication")
             response_text = f"role:{self.status.role}"
             response_text += f"\r\nmaster_replid:{self.status.master_replid}"
             response_text += f"\r\nmaster_repl_offset:{self.status.master_repl_offset}"
             return formatter.format_string_expression(response_text)
 
+        @self.registry.register(Command.REPLCONF)
+        async def handle_replconf(args: list[str]) -> bytes:
+            # Command example: (Command.REPLCONF, "listening-port", "6973")
+            if args[0].upper() == "LISTENING-PORT" and args[1].isdigit():
+                print(
+                    "listening_port", args[1]
+                )  # TODO need to add proper logging at some point
+            elif args[0].upper() == "CAPA" and args[1].upper() == "PSYNC2":
+                print("capa", args[1])
+            else:
+                return formatter.format_simple_error("Unexpected command")
+            return formatter.format_ok_expression()
 
     async def _execute_command(self, command: CommandType) -> bytes:
         """Execute a command and return the formatted result"""
@@ -313,7 +325,9 @@ class Processor:
 
         cmd_type = command[0]
 
-        if cmd_type == Command.DISCARD or not (self.is_queued and cmd_type != Command.EXEC):
+        if cmd_type == Command.DISCARD or not (
+            self.is_queued and cmd_type != Command.EXEC
+        ):
             # For DISCARD or with non-transactional processing
             args = list(command[1:])
             handler = self.registry.get_handler(cmd_type)

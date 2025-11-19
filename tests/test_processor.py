@@ -592,7 +592,8 @@ class TestProcessor:
     async def test_discard(self, processor_stub):
         await processor_stub.process_command((Command.DISCARD,))
         assert (
-            processor_stub.writer.response[0].decode() == "-ERR DISCARD without MULTI\r\n"
+            processor_stub.writer.response[0].decode()
+            == "-ERR DISCARD without MULTI\r\n"
         )
         await processor_stub.process_command((Command.MULTI,))
         assert processor_stub.writer.response[1].decode() == "+OK\r\n"
