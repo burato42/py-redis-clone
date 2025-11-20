@@ -67,7 +67,7 @@ class Processor:
         @self.registry.register(Command.ECHO)
         async def handle_echo(args: list[str]) -> bytes:
             # Command example: (Command.ECHO, "banana")
-            return formatter.format_string_expression(args[0])
+            return formatter.format_bulk_string(args[0])
 
         @self.registry.register(Command.SET)
         async def handle_set(args: list[str]) -> bytes:
@@ -185,7 +185,7 @@ class Processor:
 
             try:
                 stream_id = await self.storage.set_stream(record_key, Value(obj))
-                return formatter.format_string_expression(stream_id)
+                return formatter.format_bulk_string(stream_id)
             except ValueError as err:
                 return formatter.format_simple_error(err)
 
@@ -303,7 +303,7 @@ class Processor:
             response_text = f"role:{self.status.role}"
             response_text += f"\r\nmaster_replid:{self.status.master_replid}"
             response_text += f"\r\nmaster_repl_offset:{self.status.master_repl_offset}"
-            return formatter.format_string_expression(response_text)
+            return formatter.format_bulk_string(response_text)
 
         @self.registry.register(Command.REPLCONF)
         async def handle_replconf(args: list[str]) -> bytes:
@@ -320,10 +320,15 @@ class Processor:
 
         @self.registry.register(Command.PSYNC)
         async def handle_psync(args: list[str]) -> bytes:
+            # Command example: (Command.PSYNC, "?", "-1")
             if args[0].upper() == "?" and args[1] == "-1":
-                return f"+{Command.FULLRESYNC.name} {self.status.master_replid} 0\r\n".encode(
-                    "utf-8"
+                psync_response = formatter.format_simple_string(
+                    f"{Command.FULLRESYNC.name} {self.status.master_replid} 0"
                 )
+                with open("app/files/empty.rdb", "br") as f:
+                    empty_rdb = f.read()
+                    file_response = formatter.format_file_response(empty_rdb)
+                return psync_response + file_response
             return formatter.format_simple_error("Unexpected command")
 
     async def _execute_command(self, command: CommandType) -> bytes:

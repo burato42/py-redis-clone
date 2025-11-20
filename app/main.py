@@ -18,7 +18,7 @@ async def main(port: int, replicaof: str):
         status = Status("slave", "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb", 0)
         async with Client(primary_host, int(primary_port)) as client:
             response = await client.ping()
-            print(response)
+
             if "PONG" in response:  # TODO implement a protocol for the interaction
                 replica_port_response = await client.replconf_port(port)
                 if "OK" not in replica_port_response:

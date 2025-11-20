@@ -4,9 +4,15 @@ from app.storage.storage_facade import Value, ValueType
 
 
 class Formatter:
-    def format_string_expression(self, argument: str) -> bytes:
+    def format_bulk_string(self, argument: str) -> bytes:
         response = f"${len(argument)}\r\n{argument}\r\n"
         return response.encode("utf-8")
+
+    def format_file_response(self, argument: bytes) -> bytes:
+        return b"$" + str(len(argument)).encode("utf-8") + b"\r\n" + argument
+
+    def format_simple_string(self, argument: str) -> bytes:
+        return f"+{argument}\r\n".encode()
 
     def format_ok_expression(self) -> bytes:
         return b"+OK\r\n"
@@ -90,8 +96,6 @@ class Formatter:
         for response in responses:
             execution_result += response
         return execution_result
-
-    # def format_
 
 
 formatter = Formatter()
