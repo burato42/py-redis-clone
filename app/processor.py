@@ -1,11 +1,13 @@
 import asyncio
-import datetime  # use this way to keep the tests working
+import datetime
+from asyncio import StreamReader, StreamWriter
 from collections import deque
 from enum import Enum
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from app.formatter import formatter
 from app.parser import Command
+from app.replicaclient import Client
 from app.status import Status
 from app.storage.storage_facade import Storage, Value
 
@@ -27,12 +29,14 @@ class CommandHandlerRegistry:
 
     def __init__(self):
         self._handlers = {}
+        self._writing = {}
 
-    def register(self, command: Command):
+    def register(self, command: Command, writing: bool = False):
         """Decorator to register a command handler"""
 
         def decorator(handler_func: Callable):
             self._handlers[command] = handler_func
+            self._writing[command] = writing
             return handler_func
 
         return decorator
@@ -45,34 +49,41 @@ class CommandHandlerRegistry:
         """List all registered commands"""
         return list(self._handlers.keys())
 
+    def is_writing(self, command: Command):
+        """Check if a command is writing"""
+        return self._writing.get(command, False)
+
 
 class Processor:
     def __init__(
-        self,
-        writer: Any,
-        storage: Storage,
-        status: Status,
+            self,
+            storage: Storage,
+            status: Status,
+            connections: Optional[list[Client]] = None,
     ):
-        self.writer = writer
         self.storage = storage
         self.status = status
         self.is_queued = False
         self.command_queue: deque[CommandType] = deque()
         self.registry = CommandHandlerRegistry()
         self._register_handlers()
+        self.client: Optional[Client] = None
+        self.connections = connections if connections is not None else []
 
     def _register_handlers(self):
         """Register all command handlers"""
 
         @self.registry.register(Command.ECHO)
         async def handle_echo(args: list[str]) -> bytes:
-            # Command example: (Command.ECHO, "banana")
             return formatter.format_bulk_string(args[0])
 
-        @self.registry.register(Command.SET)
+        @self.registry.register(Command.OK)
+        async def handle_ok(args: list[str]) -> bytes:
+            return b""
+
+        @self.registry.register(Command.SET, True)
         async def handle_set(args: list[str]) -> bytes:
-            # Command example: (Command.SET, "foo", "bar", "PX", 100)
-            # TODO Add check that only optional either EX or PX are possible
+            print(args)
             record_key = args[0]
             record_value = args[1]
             if len(args) > 2:
@@ -80,7 +91,7 @@ class Processor:
                     datetime.datetime.now() + datetime.timedelta(seconds=int(args[3]))
                     if args[2].upper() == "EX"
                     else datetime.datetime.now()
-                    + datetime.timedelta(milliseconds=int(args[3]))
+                         + datetime.timedelta(milliseconds=int(args[3]))
                 )
             else:
                 expiration = None
@@ -89,39 +100,37 @@ class Processor:
 
         @self.registry.register(Command.GET)
         async def handle_get(args: list[str]) -> bytes:
-            # Command example: (Command.GET, "foo")
             value = self.storage.get(args[0])
             return formatter.format_get_response(value)
 
         @self.registry.register(Command.PING)
         async def handle_ping(_: list[str]) -> bytes:
-            # Command example: (Command.PING,)
             return b"+PONG\r\n"
+
+        @self.registry.register(Command.PONG)
+        async def handle_pong(_: list[str]) -> bytes:
+            return b""
 
         @self.registry.register(Command.RPUSH)
         async def handle_rpush(args: list[str]) -> bytes:
-            # Command example: (Command.RPUSH, "key", "value1", "value2")
             return await self._process_push_command(Push.RIGHT, args)
 
         @self.registry.register(Command.LPUSH)
         async def handle_lpush(args: list[str]) -> bytes:
-            # Command example: (Command.LPUSH, "key", "value1", "value2")
             return await self._process_push_command(Push.LEFT, args)
 
         @self.registry.register(Command.LRANGE)
         async def handle_lrange(args: list[str]) -> bytes:
-            # Command example: (Command.LRANGE, "list_key", "0", "1")
             record_key = args[0]
             all_values = self.storage.get(record_key)
             if not all_values:
                 return formatter.format_lrange_response(None)
 
-            values = all_values[int(args[1]) : int(args[2]) + 1 or len(all_values)]
+            values = all_values[int(args[1]): int(args[2]) + 1 or len(all_values)]
             return formatter.format_lrange_response(values)
 
         @self.registry.register(Command.LLEN)
         async def handle_llen(args: list[str]) -> bytes:
-            # Command example: (Command.LLEN, "list_key")
             record_key = args[0]
             all_values = self.storage.get(record_key)
             if not all_values or not isinstance(all_values, list):
@@ -131,7 +140,6 @@ class Processor:
 
         @self.registry.register(Command.BLPOP)
         async def handle_blpop(args: list[str]) -> bytes:
-            # Command example: (Command.BLPOP, "mango", "0")
             record_key = args[0]
             if len(args) >= 2 and args[1] != "0":
                 timeout = float(args[1])
@@ -150,7 +158,6 @@ class Processor:
 
         @self.registry.register(Command.LPOP)
         async def handle_lpop(args: list[str]) -> bytes:
-            # Command example: (Command.LPOP, "mango")
             record_key = args[0]
             all_values = self.storage.get(record_key)
             if not all_values or not isinstance(all_values, list):
@@ -167,14 +174,12 @@ class Processor:
 
         @self.registry.register(Command.TYPE)
         async def handle_type(args: list[str]) -> bytes:
-            # Command example: (Command.TYPE, "foo")
             record_key = args[0]
             record_type = self.storage.get_type(record_key)
             return formatter.format_type_response(record_type)
 
         @self.registry.register(Command.XADD)
         async def handle_xadd(args: list[str]) -> bytes:
-            # Command example: (Command.XADD,  "key1", "0-1", "foo", "bar", "baz", "qux")
             record_key = args[0]
             stream_key = args[1]
             obj = dict(id=stream_key)
@@ -191,7 +196,6 @@ class Processor:
 
         @self.registry.register(Command.XRANGE)
         async def handle_xrange(args: list[str]) -> bytes:
-            # Command example:(Command.XRANGE, "some_key", "1526985054069-0", "1526985054079")
             record_key = args[0]
 
             start, end = args[1], args[2]
@@ -211,12 +215,9 @@ class Processor:
 
         @self.registry.register(Command.XREAD)
         async def handle_xread(args: list[str]) -> bytes:
-            # Command example:(Command.XREAD, "STREAMS", "some_key", "1526985054069-0")
-            record_list: list[
-                tuple[str, list[Value]]
-            ] = []  # list containing the stream key and list of values for every key
+            record_list: list[tuple[str, list[Value]]] = []
 
-            blocking_period = None  # milliseconds, if None then non-blocking
+            blocking_period = None
             if args[0].upper() == StreamParams.BLOCK.name:
                 blocking_period = int(args[1])
                 parameters = args[3:]
@@ -229,12 +230,12 @@ class Processor:
                 raise RuntimeError("Incorrect number of parameters")
 
             key_parameters = parameters[: parameter_size // 2]
-            id_parameters = parameters[parameter_size // 2 :]
+            id_parameters = parameters[parameter_size // 2:]
 
             for record_key, start in zip(key_parameters, id_parameters):
                 if (
-                    start == "$"
-                    and self.storage.stream_storage.data.get(record_key) is None
+                        start == "$"
+                        and self.storage.stream_storage.data.get(record_key) is None
                 ):
                     start_params = 0, 0
                 elif start == "$" and self.storage.stream_storage.data.get(record_key):
@@ -259,7 +260,6 @@ class Processor:
 
         @self.registry.register(Command.INCR)
         async def handle_incr(args: list[str]) -> bytes:
-            # Command example:(Command.INCR, "some_key")
             response = self.storage.increment(args[0])
             if response:
                 return formatter.format_integer_response(response)
@@ -284,7 +284,7 @@ class Processor:
             self.is_queued = False
             responses = []
             for command in self.command_queue:
-                responses.append(await self._execute_command(command))
+                responses.append(await self._execute_command(command, None, None))
             self.command_queue.clear()
             return formatter.format_multiple_responses(responses)
 
@@ -299,7 +299,6 @@ class Processor:
 
         @self.registry.register(Command.INFO)
         async def handle_info(_: list[str]) -> bytes:
-            # Command example: (Command.INFO, "replication")
             response_text = f"role:{self.status.role}"
             response_text += f"\r\nmaster_replid:{self.status.master_replid}"
             response_text += f"\r\nmaster_repl_offset:{self.status.master_repl_offset}"
@@ -307,20 +306,23 @@ class Processor:
 
         @self.registry.register(Command.REPLCONF)
         async def handle_replconf(args: list[str]) -> bytes:
-            # Command example: (Command.REPLCONF, "listening-port", "6973")
             if args[0].upper() == "LISTENING-PORT" and args[1].isdigit():
-                print(
-                    "listening_port", args[1]
-                )  # TODO need to add proper logging at some point
+                print("listening_port", args[1])
             elif args[0].upper() == "CAPA" and args[1].upper() == Command.PSYNC2.name:
                 print("capa", args[1])
             else:
                 return formatter.format_simple_error("Unexpected command")
             return formatter.format_ok_expression()
 
-        @self.registry.register(Command.PSYNC)
-        async def handle_psync(args: list[str]) -> bytes:
-            # Command example: (Command.PSYNC, "?", "-1")
+    async def _execute_command(self, command: CommandType, reader, writer) -> bytes:
+        """Execute a command and return the formatted result"""
+        if not command:
+            raise RuntimeError("Empty command")
+
+        cmd_type = command[0]
+
+        if cmd_type == Command.PSYNC:
+            args = list(command[1:])
             if args[0].upper() == "?" and args[1] == "-1":
                 psync_response = formatter.format_simple_string(
                     f"{Command.FULLRESYNC.name} {self.status.master_replid} 0"
@@ -328,37 +330,55 @@ class Processor:
                 with open("app/files/empty.rdb", "br") as f:
                     empty_rdb = f.read()
                     file_response = formatter.format_file_response(empty_rdb)
+
+                # Add this replica connection to the list
+                if reader and writer:
+                    self.connections.append(Client(reader, writer))
+                    print(f"Replica connected. Total replicas: {len(self.connections)}")
+
                 return psync_response + file_response
             return formatter.format_simple_error("Unexpected command")
 
-    async def _execute_command(self, command: CommandType) -> bytes:
-        """Execute a command and return the formatted result"""
-        if not command:
-            raise RuntimeError("Empty command")
-
-        cmd_type = command[0]
-
         if cmd_type == Command.DISCARD or not (
-            self.is_queued and cmd_type != Command.EXEC
+                self.is_queued and cmd_type != Command.EXEC
         ):
-            # For DISCARD or with non-transactional processing
             args = list(command[1:])
             handler = self.registry.get_handler(cmd_type)
             if handler is None:
-                raise RuntimeError(f"Unknown command: {cmd_type}")
+                return formatter.format_simple_error("Unknown command")
+
+            # Execute the command
             response = await handler(args)
+
+            # Propagate write commands to replicas (only if we are a master)
+            if (self.registry.is_writing(cmd_type) and
+                    self.connections and
+                    len(self.connections) > 0 and
+                    self.status.role == "master"):
+                print(f"Propagating {cmd_type.name} to {len(self.connections)} replicas")
+                # Create tasks for all replicas to avoid blocking
+                tasks = []
+                for connection in self.connections:
+                    task = asyncio.create_task(
+                        connection.send_command(cmd_type.name, *args)
+                    )
+                    tasks.append(task)
+
+                # Wait for all propagations to complete (optional)
+                if tasks:
+                    await asyncio.gather(*tasks, return_exceptions=True)
+
+            return response
         else:
             # For open transaction
             self.command_queue.append(command)
-            response = formatter.format_queued_response()
+            return formatter.format_queued_response()
 
-        return response
-
-    async def process_command(self, command: CommandType) -> None:
+    async def process_command(self, command: CommandType, reader, writer) -> None:
         """Run the command execution and writes the result into writer"""
-        response = await self._execute_command(command)
-        self.writer.write(response)
-        await self.writer.drain()
+        response = await self._execute_command(command, reader, writer)
+        writer.write(response)
+        await writer.drain()
 
     async def _process_push_command(self, push: Push, args: list[str]) -> bytes:
         record_key = args[0]

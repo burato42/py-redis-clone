@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.client import ReplicaClient
 from app.parser import Command
 from app.processor import Processor
 from app.status import Status
@@ -34,10 +35,14 @@ def storage_stub():
 def status_stub():
     return Status("primary")
 
+@pytest.fixture(scope="function")
+def replica_client_stub():
+    return ReplicaClient("localhost", 6380)
+
 
 @pytest.fixture(scope="function")
-def processor_stub(writer, storage_stub, status_stub):
-    return Processor(writer, storage_stub, status_stub)
+def processor_stub(writer, storage_stub, status_stub, replica_client_stub):
+    return Processor(writer, storage_stub, status_stub, replica_client_stub)
 
 
 @pytest.fixture()
@@ -608,4 +613,4 @@ class TestProcessor:
 
     async def test_info(self, processor_stub):
         await processor_stub.process_command((Command.INFO, "replication"))
-        assert processor_stub.writer.response[0].decode() == "$12\r\nrole:primary\r\n"
+        assert processor_stub.writer.response[0].decode() == "$50\r\nrole:primary\r\nmaster_replid:\r\nmaster_repl_offset:0\r\n"

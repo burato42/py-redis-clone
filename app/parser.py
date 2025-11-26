@@ -28,6 +28,7 @@ class Command(Enum):
     PSYNC2 = 22
     OK = 23
     FULLRESYNC = 24
+    PONG = 25
 
 
 class Parser:
@@ -56,6 +57,7 @@ class Parser:
         "PSYNC2": Command.PSYNC2,
         "OK": Command.OK,
         "FULLRESYNC": Command.FULLRESYNC,
+        "PONG": Command.PONG,
     }
 
     def parse_command(self, payload: bytes) -> tuple[Command, *tuple[str, ...]]:

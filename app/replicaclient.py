@@ -1,27 +1,24 @@
 import asyncio
+from asyncio import StreamReader, StreamWriter
 from typing import Optional, Any
 
 from app.parser import Command
 
 
 class Client:
-    def __init__(self, host: str = "localhost", port: int = 6379):
-        self.host = host
-        self.port = port
-        self.reader: Optional[asyncio.StreamReader] = None
-        self.writer: Optional[asyncio.StreamWriter] = None
+    def __init__(self, reader: StreamReader, writer: StreamWriter):
+        self.reader = reader
+        self.writer = writer
         self._lock = asyncio.Lock()
-
-    async def connect(self):
-        self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
 
     async def close(self):
         if self.writer:
             self.writer.close()
             await self.writer.wait_closed()
 
-    async def _send_command(self, *args) -> Any:
+    async def send_command(self, *args) -> Any:
         async with self._lock:
+            print("This should be propageted", args)
             command = self._encode_command(*args)
 
             self.writer.write(command)
@@ -44,32 +41,41 @@ class Client:
 
     async def ping(self) -> Optional[str]:
         """PING command."""
-        return await self._send_command(Command.PING.name)
+        return await self.send_command(Command.PING.name)
 
     async def replconf_port(self, port: str) -> Optional[str]:
         """REPLCONF command for listening on port number."""
-        return await self._send_command(Command.REPLCONF.name, "listening-port", port)
+        return await self.send_command(Command.REPLCONF.name, "listening-port", port)
 
     async def replicaconf_capabilities(self, protocol: str) -> Optional[str]:
         """REPLCONF command for setting relication protocol."""
-        return await self._send_command(Command.REPLCONF.name, "capa", protocol)
+        return await self.send_command(Command.REPLCONF.name, "capa", protocol)
 
     async def psync(self, replication_id: str, offset: int) -> Optional[str]:
         """PSYNC command."""
-        return await self._send_command(Command.PSYNC.name, replication_id, str(offset))
+        return await self.send_command(Command.PSYNC.name, replication_id, str(offset))
 
     async def get(self, key: str) -> Optional[str]:
         """GET command."""
-        return await self._send_command(Command.GET.name, key)
+        return await self.send_command(Command.GET.name, key)
 
     async def set(self, key: str, value: str) -> str:
         """SET command."""
-        return await self._send_command(Command.SET.name, key, value)
+        return await self.send_command(Command.SET.name, key, value)
 
-    # Context manager support
-    async def __aenter__(self):
-        await self.connect()
-        return self
+    # # Context manager support
+    # async def __aenter__(self):
+    #     await self.connect()
+    #     return self
+    #
+    # async def __aexit__(self, exc_type, exc_val, exc_tb):
+    #     await self.close()
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.close()
+
+class ConnectionFactory:
+    def __init__(self, host: str = "localhost", port: int = 6379, is_connected: bool = False):
+        self.host = host
+        self.port = port
+
+    async def connect(self) -> Client:
+        return Client(*await asyncio.open_connection(self.host, self.port))
