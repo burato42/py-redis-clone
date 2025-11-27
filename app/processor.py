@@ -24,6 +24,8 @@ class StreamParams(Enum):
 CommandType = tuple[Command, *tuple[str]]
 
 
+
+# TODO: The idea with the registry seems irrelevant already, consider rewriting.
 class CommandHandlerRegistry:
     """Registry for command handlers"""
 
@@ -63,12 +65,22 @@ class Processor:
     ):
         self.storage = storage
         self.status = status
-        self.is_queued = False
-        self.command_queue: deque[CommandType] = deque()
+        self.is_queued: dict[int, bool] = {}
+        self.command_queues: dict[int, deque[CommandType]] = {}
         self.registry = CommandHandlerRegistry()
         self._register_handlers()
         self.client: Optional[Client] = None
         self.connections = connections if connections is not None else []
+
+    def _get_connection_id(self, reader, writer) -> int:
+        return id(writer) if writer else 0
+
+    def _ensure_connection_state(self, conn_id: int):
+        """Ensure connection state exists"""
+        if conn_id not in self.is_queued:
+            self.is_queued[conn_id] = False
+        if conn_id not in self.command_queues:
+            self.command_queues[conn_id] = deque()
 
     def _register_handlers(self):
         """Register all command handlers"""
@@ -76,10 +88,6 @@ class Processor:
         @self.registry.register(Command.ECHO)
         async def handle_echo(args: list[str]) -> bytes:
             return formatter.format_bulk_string(args[0])
-
-        @self.registry.register(Command.OK)
-        async def handle_ok(args: list[str]) -> bytes:
-            return b""
 
         @self.registry.register(Command.SET, True)
         async def handle_set(args: list[str]) -> bytes:
@@ -269,32 +277,17 @@ class Processor:
 
         @self.registry.register(Command.MULTI)
         async def handle_multi(_: list[str]) -> bytes:
-            self.is_queued = True
+            # Will be set per connection in _execute_command
             return formatter.format_ok_expression()
 
         @self.registry.register(Command.EXEC)
         async def handle_exec(_: list[str]) -> bytes:
-            if not self.is_queued:
-                return formatter.format_simple_error(Exception("EXEC without MULTI"))
-
-            if not self.command_queue:
-                self.is_queued = False
-                return formatter.format_lrange_response(None)
-
-            self.is_queued = False
-            responses = []
-            for command in self.command_queue:
-                responses.append(await self._execute_command(command, None, None))
-            self.command_queue.clear()
-            return formatter.format_multiple_responses(responses)
+            # Will be handled per connection in _execute_command
+            return formatter.format_lrange_response(None)
 
         @self.registry.register(Command.DISCARD)
         async def handle_discard(_: list[str]) -> bytes:
-            if not self.is_queued:
-                return formatter.format_simple_error(Exception("DISCARD without MULTI"))
-
-            self.is_queued = False
-            self.command_queue.clear()
+            # Will be handled per connection in _execute_command
             return formatter.format_ok_expression()
 
         @self.registry.register(Command.INFO)
@@ -316,11 +309,16 @@ class Processor:
 
     async def _execute_command(self, command: CommandType, reader, writer) -> bytes:
         """Execute a command and return the formatted result"""
+        # TODO: Method becomes hardly compatible with the registry, refactor.
+
         if not command:
             raise RuntimeError("Empty command")
 
         cmd_type = command[0]
+        conn_id = self._get_connection_id(reader, writer)
+        self._ensure_connection_state(conn_id)
 
+        # Handle PSYNC specially (doesn't need per-connection state)
         if cmd_type == Command.PSYNC:
             args = list(command[1:])
             if args[0].upper() == "?" and args[1] == "-1":
@@ -339,9 +337,38 @@ class Processor:
                 return psync_response + file_response
             return formatter.format_simple_error("Unexpected command")
 
-        if cmd_type == Command.DISCARD or not (
-                self.is_queued and cmd_type != Command.EXEC
-        ):
+        # Handle MULTI
+        if cmd_type == Command.MULTI:
+            self.is_queued[conn_id] = True
+            return formatter.format_ok_expression()
+
+        # Handle EXEC
+        if cmd_type == Command.EXEC:
+            if not self.is_queued[conn_id]:
+                return formatter.format_simple_error(Exception("EXEC without MULTI"))
+
+            if not self.command_queues[conn_id]:
+                self.is_queued[conn_id] = False
+                return formatter.format_lrange_response(None)
+
+            self.is_queued[conn_id] = False
+            responses = []
+            for queued_command in self.command_queues[conn_id]:
+                responses.append(await self._execute_command(queued_command, reader, writer))
+            self.command_queues[conn_id].clear()
+            return formatter.format_multiple_responses(responses)
+
+        # Handle DISCARD
+        if cmd_type == Command.DISCARD:
+            if not self.is_queued[conn_id]:
+                return formatter.format_simple_error(Exception("DISCARD without MULTI"))
+
+            self.is_queued[conn_id] = False
+            self.command_queues[conn_id].clear()
+            return formatter.format_ok_expression()
+
+        # Regular command execution
+        if not self.is_queued[conn_id] or cmd_type == Command.DISCARD:
             args = list(command[1:])
             handler = self.registry.get_handler(cmd_type)
             if handler is None:
@@ -364,14 +391,14 @@ class Processor:
                     )
                     tasks.append(task)
 
-                # Wait for all propagations to complete (optional)
+                # Wait for all propagations to complete
                 if tasks:
                     await asyncio.gather(*tasks, return_exceptions=True)
 
             return response
         else:
-            # For open transaction
-            self.command_queue.append(command)
+            # For open transaction - queue the command
+            self.command_queues[conn_id].append(command)
             return formatter.format_queued_response()
 
     async def process_command(self, command: CommandType, reader, writer) -> None:

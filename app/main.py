@@ -2,7 +2,7 @@ import argparse
 import asyncio
 from asyncio import StreamReader, StreamWriter
 
-from app.parser import parser, Command
+from app.parser import parser
 from app.processor import Processor
 from app.replicaclient import Client
 from app.status import Status
