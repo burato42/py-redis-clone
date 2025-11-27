@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-from asyncio import StreamReader, StreamWriter
 from collections import deque
 from enum import Enum
 from typing import Any, Callable, Optional
@@ -10,6 +9,7 @@ from app.parser import Command
 from app.replicaclient import Client
 from app.status import Status
 from app.storage.storage_facade import Storage, Value
+from app.logging import logger
 
 
 class Push(Enum):
@@ -22,7 +22,6 @@ class StreamParams(Enum):
 
 
 CommandType = tuple[Command, *tuple[str]]
-
 
 
 # TODO: The idea with the registry seems irrelevant already, consider rewriting.
@@ -70,7 +69,7 @@ class Processor:
         self.registry = CommandHandlerRegistry()
         self._register_handlers()
         self.client: Optional[Client] = None
-        self.connections = connections if connections is not None else []
+        self.connections = connections if connections is not None else [] # To track replicas
 
     def _get_connection_id(self, reader, writer) -> int:
         return id(writer) if writer else 0
@@ -91,7 +90,6 @@ class Processor:
 
         @self.registry.register(Command.SET, True)
         async def handle_set(args: list[str]) -> bytes:
-            print(args)
             record_key = args[0]
             record_value = args[1]
             if len(args) > 2:
@@ -300,9 +298,9 @@ class Processor:
         @self.registry.register(Command.REPLCONF)
         async def handle_replconf(args: list[str]) -> bytes:
             if args[0].upper() == "LISTENING-PORT" and args[1].isdigit():
-                print("listening_port", args[1])
+                logger.debug("listening_port {port}", port=args[1])
             elif args[0].upper() == "CAPA" and args[1].upper() == Command.PSYNC2.name:
-                print("capa", args[1])
+                logger.debug("capa {cmd}", cmd=args[1])
             else:
                 return formatter.format_simple_error("Unexpected command")
             return formatter.format_ok_expression()
@@ -332,7 +330,7 @@ class Processor:
                 # Add this replica connection to the list
                 if reader and writer:
                     self.connections.append(Client(reader, writer))
-                    print(f"Replica connected. Total replicas: {len(self.connections)}")
+                    logger.info("Replica connected. Total replicas: {cnt}", cnt=len(self.connections))
 
                 return psync_response + file_response
             return formatter.format_simple_error("Unexpected command")
@@ -382,7 +380,7 @@ class Processor:
                     self.connections and
                     len(self.connections) > 0 and
                     self.status.role == "master"):
-                print(f"Propagating {cmd_type.name} to {len(self.connections)} replicas")
+                logger.info("Propagating {cmd} to {cnt} replicas", cmd=cmd_type.name, cnt=len(self.connections))
                 # Create tasks for all replicas to avoid blocking
                 tasks = []
                 for connection in self.connections:

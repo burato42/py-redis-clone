@@ -3,6 +3,7 @@ from asyncio import StreamReader, StreamWriter
 from typing import Optional, Any
 
 from app.parser import Command
+from app.logging import logger
 
 
 class Client:
@@ -18,7 +19,7 @@ class Client:
 
     async def send_command(self, *args) -> Any:
         async with self._lock:
-            print("This should be propageted", args)
+            logger.debug("This should be propageted", args)
             command = self._encode_command(*args)
 
             self.writer.write(command)
@@ -62,14 +63,6 @@ class Client:
     async def set(self, key: str, value: str) -> str:
         """SET command."""
         return await self.send_command(Command.SET.name, key, value)
-
-    # # Context manager support
-    # async def __aenter__(self):
-    #     await self.connect()
-    #     return self
-    #
-    # async def __aexit__(self, exc_type, exc_val, exc_tb):
-    #     await self.close()
 
 
 class ConnectionFactory:

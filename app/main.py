@@ -7,11 +7,11 @@ from app.processor import Processor
 from app.replicaclient import Client
 from app.status import Status
 from app.storage.storage_facade import storage, Storage
+from app.logging import logger
 
 
 class Server(Processor):
     def __init__(self, host: str, port: int, storage: Storage, status: Status):
-        # Initialize connections list for tracking replicas
         super().__init__(storage, status, connections=[])
         self.host = host
         self.port = port
@@ -32,12 +32,16 @@ class Server(Processor):
                 if not data:
                     break
                 cmd = parser.parse_command(data)
-                print("Command to master", cmd, reader, writer)
+                logger.debug(
+                    "Command to master: {cmd}, parameters: {reader}, {writer}",
+                    cmd=cmd,
+                    reader=reader,
+                    writer=writer)
                 await self.process_command(cmd, reader, writer)
         except Exception as e:
-            print(f"Error: {e}")
+            logger.warning(e)
         finally:
-            print("Closing connection")
+            logger.info(f"Closing connection to {self.host}:{self.port}")
             writer.close()
             await writer.wait_closed()
 
@@ -75,9 +79,9 @@ class Replica(Processor):
                 cmd = parser.parse_command(data)
                 await self.process_command(cmd, reader, writer)
         except Exception as e:
-            print(f"Error: {e}")
+            logger.warning(e)
         finally:
-            print("Closing connection in replica")
+            logger.info("Closing connection to replica {self.replica_port}")
             writer.close()
             await writer.wait_closed()
 
@@ -103,7 +107,7 @@ class Replica(Processor):
 
             # Send PSYNC and handle the response
             psync_response = await client.psync("?", -1)
-            print(f"PSYNC response: {psync_response}")
+            logger.debug("PSYNC response: {psync_response}", psync_response=psync_response)
 
             # Read and discard the RDB file that follows
             await self._read_rdb_file()
@@ -113,49 +117,44 @@ class Replica(Processor):
 
     async def _read_rdb_file(self):
         """Read and discard the RDB file sent after PSYNC"""
-        # Read the RDB file header (e.g., "$88\r\n")
         rdb_header = await self.master_reader.readline()
-        print(f"RDB header: {rdb_header}")
+        logger.debug("RDB header: {rdb_header}", rdb_header=rdb_header)
 
-        # Extract the file size
         if rdb_header.startswith(b'$'):
             file_size = int(rdb_header[1:].strip())
-            print(f"RDB file size: {file_size}")
+            logger.debug("RDB file size: {file_size}", file_size=file_size)
 
-            # Read the actual RDB file content
             rdb_content = await self.master_reader.readexactly(file_size)
-            print(f"Read RDB file of {len(rdb_content)} bytes")
+            logger.debug("Read RDB file of {len(rdb_content)} bytes")
 
     async def replication_loop(self):
-        print("Starting replication loop - will run forever...")
+        logger.debug("Starting replication loop - will run forever...")
 
         while True:
             try:
                 # Read commands from master
                 data = await self.master_reader.read(1024)
                 if not data:
-                    print("No data received from master, breaking loop")
+                    logger.debug("No data received from master, breaking loop")
                     break
 
-                print(f"Received from master: {data}")
+                logger.debug("Received from master: {data}", data=data)
                 cmd = parser.parse_command(data)
-                print(f"Parsed command: {cmd}")
+                logger.debug("Parsed command: {cmd}", cmd=cmd)
 
                 # Process the command (no need to send response back to master)
                 await self.process_command(cmd, self.master_reader, self.master_writer)
 
             except asyncio.CancelledError:
-                print("Replication loop cancelled")
+                logger.warning("Replication loop cancelled")
                 break
             except Exception as e:
-                print(f"Error in replication loop: {e}")
-                import traceback
-                traceback.print_exc()
+                logger.warning("Error in replication loop: {e}", e=e)
                 break
 
 
 async def main(port: int, replicaof: str):
-    print("Logs from your program will appear here!")
+    logger.debug("Logs from your program will appear here!")
 
     if replicaof is None:
         status = Status("master", "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb", 0)
